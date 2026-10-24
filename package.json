@@ -1,0 +1,50 @@
+{
+  "name": "@ravshansbox/pi-statusline",
+  "version": "0.0.0",
+  "description": "Statusline extension for pi",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ravshansbox/pi-statusline.git"
+  },
+  "homepage": "https://github.com/ravshansbox/pi-statusline#readme",
+  "bugs": {
+    "url": "https://github.com/ravshansbox/pi-statusline/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "statusline"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "node --test",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0",
+    "typescript": "^7.0.2"
+  },
+  "files": [
+    "index.ts"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
