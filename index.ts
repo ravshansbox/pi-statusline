@@ -1,6 +1,6 @@
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename } from 'node:path';
 import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
+import { truncateToWidth } from '@earendil-works/pi-tui';
 
 type Usage = {
   input: number;
@@ -20,14 +20,6 @@ function formatTokens(count: number): string {
   if (count < 1000) return count.toString();
   if (count < 999500) return `${Math.round(count / 1000)}k`;
   return `${Math.round(count / 1000000)}m`;
-}
-
-function formatCwd(cwd: string, home: string | undefined): string {
-  if (!home) return cwd;
-  const rel = relative(resolve(home), resolve(cwd));
-  const inside = rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
-  if (!inside) return cwd;
-  return rel === '' ? '~' : `~${sep}${rel}`;
 }
 
 function getUsage(ctx: ExtensionContext) {
@@ -77,14 +69,16 @@ export default function (pi: ExtensionAPI) {
           const contextPercent =
             contextUsage?.percent != null ? contextPercentValue.toFixed(0) : '?';
 
-          let pwd = formatCwd(
-            ctx.sessionManager.getCwd(),
-            process.env['HOME'] || process.env['USERPROFILE'],
-          );
+          const modelName = model?.id.replace(/^claude-/, '') || 'no-model';
+          const topParts = [basename(ctx.sessionManager.getCwd())];
           const branch = footerData.getGitBranch();
-          if (branch) pwd = `${pwd} (${branch})`;
-          const sessionName = ctx.sessionManager.getSessionName();
-          if (sessionName) pwd = `${pwd} • ${sessionName}`;
+          if (branch) topParts.push(branch);
+          topParts.push(modelName);
+          if (model?.reasoning) {
+            const level = ctx.thinkingLevel || 'off';
+            topParts.push(level === 'off' ? 'thinking off' : level);
+          }
+          const top = topParts.join(' • ');
 
           const statsParts: string[] = [];
           if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
@@ -107,41 +101,9 @@ export default function (pi: ExtensionAPI) {
             statsParts.push(`${theme.fg('dim', '•')} ${theme.bold(theme.fg('warning', 'xp'))}`);
           }
 
-          let statsLeft = statsParts.join(' ');
-          let statsLeftWidth = visibleWidth(statsLeft);
-          if (statsLeftWidth > width) {
-            statsLeft = truncateToWidth(statsLeft, width, '...');
-            statsLeftWidth = visibleWidth(statsLeft);
-          }
-
-          const minPadding = 2;
-          const modelName = model?.id.replace(/^claude-/, '') || 'no-model';
-          let right = modelName;
-          if (model?.reasoning) {
-            const level = ctx.thinkingLevel || 'off';
-            right = level === 'off' ? `${modelName} • thinking off` : `${modelName} • ${level}`;
-          }
-
-          const rightWidth = visibleWidth(right);
-          let statsLine: string;
-          if (statsLeftWidth + minPadding + rightWidth <= width) {
-            statsLine = statsLeft + ' '.repeat(width - statsLeftWidth - rightWidth) + right;
-          } else {
-            const available = width - statsLeftWidth - minPadding;
-            if (available > 0) {
-              const truncatedRight = truncateToWidth(right, available, '');
-              const padding = ' '.repeat(
-                Math.max(0, width - statsLeftWidth - visibleWidth(truncatedRight)),
-              );
-              statsLine = statsLeft + padding + truncatedRight;
-            } else {
-              statsLine = statsLeft;
-            }
-          }
-
-          const remainder = statsLine.slice(statsLeft.length);
-          const pwdLine = truncateToWidth(theme.fg('dim', pwd), width, theme.fg('dim', '...'));
-          const lines = [pwdLine, theme.fg('dim', statsLeft) + theme.fg('dim', remainder)];
+          const statsLine = truncateToWidth(statsParts.join(' '), width, '...');
+          const topLine = truncateToWidth(theme.fg('dim', top), width, theme.fg('dim', '...'));
+          const lines = [topLine, theme.fg('dim', statsLine)];
 
           const statuses = footerData.getExtensionStatuses();
           if (statuses.size > 0) {

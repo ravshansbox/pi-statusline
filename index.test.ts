@@ -20,7 +20,6 @@ function render(options: {
   entries?: unknown[];
   branch?: string | null;
   statuses?: Map<string, string>;
-  providerCount?: number;
   width?: number;
 }): string[] {
   const handlers = new Map<string, Handler>();
@@ -65,17 +64,20 @@ function render(options: {
   const footerData = {
     getGitBranch: () => options.branch ?? null,
     getExtensionStatuses: () => options.statuses ?? new Map(),
-    getAvailableProviderCount: () => options.providerCount ?? 1,
     onBranchChange: () => () => {},
   };
   return factory({ requestRender: () => {} }, theme, footerData).render(options.width ?? 80);
 }
 
-test('shows the working directory and git branch', () => {
-  assert.equal(render({ branch: 'main' })[0], '/tmp/project (main)');
+test('shows the directory name, git branch, model and thinking level', () => {
+  assert.equal(render({ branch: 'main' })[0], 'project • main • opus • high');
 });
 
-test('shows token usage and context on the left and the model on the right', () => {
+test('leaves out the git branch outside a repository', () => {
+  assert.equal(render({})[0], 'project • opus • high');
+});
+
+test('shows token usage and context', () => {
   const line = render({
     entries: [
       {
@@ -84,12 +86,7 @@ test('shows token usage and context on the left and the model on the right', () 
       },
     ],
   })[1];
-  assert.equal(line, `${'↑8 ↓1k R26k W6k CH80% 25%/200k'.padEnd(69)}opus • high`);
-});
-
-test('hides the provider when several providers are available', () => {
-  const line = render({ providerCount: 2 })[1];
-  assert.equal(line, `${'25%/200k'.padEnd(69)}opus • high`);
+  assert.equal(line, '↑8 ↓1k R26k W6k CH80% 25%/200k');
 });
 
 test('shows extension statuses sorted by key', () => {
