@@ -135,7 +135,7 @@ export default function (pi: ExtensionAPI) {
           }
 
           const minPadding = 2;
-          const modelName = model?.id || 'no-model';
+          const modelName = model?.id.replace(/^claude-/, '') || 'no-model';
           let right = modelName;
           if (model?.reasoning) {
             const level = ctx.thinkingLevel || 'off';
