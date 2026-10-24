@@ -1,9 +1,5 @@
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import {
-  type ExtensionAPI,
-  type ExtensionContext,
-  SettingsManager,
-} from '@earendil-works/pi-coding-agent';
+import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 
 type Usage = {
@@ -71,8 +67,6 @@ function getUsage(ctx: ExtensionContext) {
 export default function (pi: ExtensionAPI) {
   pi.on('session_start', (_event, ctx) => {
     if (ctx.mode !== 'tui') return;
-    const settings = SettingsManager.create(ctx.cwd);
-
     ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());
       return {
@@ -114,11 +108,10 @@ export default function (pi: ExtensionAPI) {
             statsParts.push(`$${totals.cost.toFixed(3)}${usingSubscription ? ' (sub)' : ''}`);
           }
 
-          const autoIndicator = settings.getCompactionEnabled() ? ' (auto)' : '';
           const contextDisplay =
             contextPercent === '?'
-              ? `?/${formatTokens(contextWindow)}${autoIndicator}`
-              : `${contextPercent}%/${formatTokens(contextWindow)}${autoIndicator}`;
+              ? `?/${formatTokens(contextWindow)}`
+              : `${contextPercent}%/${formatTokens(contextWindow)}`;
           if (contextPercentValue > 90) statsParts.push(theme.fg('error', contextDisplay));
           else if (contextPercentValue > 70) statsParts.push(theme.fg('warning', contextDisplay));
           else statsParts.push(contextDisplay);

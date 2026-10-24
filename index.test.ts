@@ -84,15 +84,12 @@ test('shows token usage, cost and context on the left and the model on the right
       },
     ],
   })[1];
-  assert.equal(
-    line,
-    `${'↑1.2k ↓340 R800 W200 CH36.4% $0.012 25.0%/200k (auto)'.padEnd(69)}opus • high`,
-  );
+  assert.equal(line, `${'↑1.2k ↓340 R800 W200 CH36.4% $0.012 25.0%/200k'.padEnd(69)}opus • high`);
 });
 
 test('hides the provider when several providers are available', () => {
   const line = render({ providerCount: 2 })[1];
-  assert.equal(line, `${'25.0%/200k (auto)'.padEnd(69)}opus • high`);
+  assert.equal(line, `${'25.0%/200k'.padEnd(69)}opus • high`);
 });
 
 test('shows extension statuses sorted by key', () => {
