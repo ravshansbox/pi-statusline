@@ -15,8 +15,6 @@ import {
   Text,
   truncateToWidth,
   type TUI,
-  type TuiMouseEvent,
-  type TuiMouseEventResult,
 } from '@earendil-works/pi-tui';
 import {
   type HistoryScope,
@@ -75,8 +73,6 @@ function getUsage(ctx: ExtensionContext) {
   return { totals, latestCacheHitRate };
 }
 
-const PROMPT = '\u276f ';
-
 class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
   onReverseSearch?: () => void;
@@ -96,34 +92,6 @@ class HistoryEditor extends CustomEditor {
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
     }
     super.addToHistory(text);
-  }
-
-  private contentRows = 0;
-
-  protected override renderTopBorder(): string {
-    return '';
-  }
-
-  protected override renderBottomBorder(): string {
-    return '';
-  }
-
-  override render(width: number): string[] {
-    const lines = super.render(Math.max(1, width - PROMPT.length));
-    const bottom = lines.indexOf('', 1);
-    this.contentRows = bottom - 1;
-    return lines
-      .filter((_, i) => i !== 0 && i !== bottom)
-      .map((line, i) => (i === 0 ? PROMPT : ' '.repeat(PROMPT.length)) + line);
-  }
-
-  override handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-    return super.handleMouse({
-      ...event,
-      x: event.x - PROMPT.length,
-      y: event.y < this.contentRows ? event.y + 1 : event.y + 2,
-      width: event.width - PROMPT.length,
-    });
   }
 
   override handleInput(data: string): void {

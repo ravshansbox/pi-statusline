@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { stripVTControlCharacters } from 'node:util';
 import { test } from 'node:test';
 import { initTheme, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import extension from './index.ts';
@@ -15,12 +14,7 @@ type Component = {
   render(width: number): string[];
   handleInput(data: string): void;
   getText(): string;
-  setText(text: string): void;
-  handleMouse(event: object): unknown;
 };
-
-const plain = (line: string) =>
-  stripVTControlCharacters(line).replaceAll('\x1b_pi:fc\x07', '').replaceAll('\x1b_pi:/fc\x07', '');
 type Factory = (tui: unknown, theme: unknown, footerData: unknown) => Component;
 type CustomFactory = (
   tui: unknown,
@@ -188,40 +182,6 @@ test('loads a prompt chosen in reverse search with ctrl+r', async () => {
   for (const key of 'build') search.handleInput(key);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'fix the build');
-});
-
-test('shows the prompt without borders', async () => {
-  const { editor } = await startEditor('/work/prompt');
-  editor.setText('hello');
-  assert.deepEqual(editor.render(20).map(plain), ['\u276f hello             ']);
-});
-
-test('indents wrapped prompt lines under the text', async () => {
-  const { editor } = await startEditor('/work/prompt');
-  editor.setText('one two three four');
-  assert.deepEqual(editor.render(12).map(plain), [
-    '\u276f one two   ',
-    '  three     ',
-    '  four      ',
-  ]);
-});
-
-test('moves the cursor to where the prompt is clicked', async () => {
-  const { editor } = await startEditor('/work/prompt');
-  editor.setText('hello');
-  editor.render(20);
-  editor.handleMouse({
-    type: 'click',
-    button: 'left',
-    x: 4,
-    y: 0,
-    screenX: 4,
-    screenY: 0,
-    width: 20,
-    height: 1,
-  });
-  editor.handleInput('X');
-  assert.equal(editor.getText(), 'heXllo');
 });
 
 test('shows the directory name, git branch, model and thinking level', () => {
