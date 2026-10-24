@@ -1,6 +1,27 @@
 import { basename } from 'node:path';
-import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { truncateToWidth } from '@earendil-works/pi-tui';
+import {
+  CustomEditor,
+  getSelectListTheme,
+  type ExtensionAPI,
+  type ExtensionContext,
+  type Theme,
+} from '@earendil-works/pi-coding-agent';
+import {
+  type Component,
+  fuzzyFilter,
+  matchesKey,
+  SelectList,
+  type SelectListTheme,
+  Text,
+  truncateToWidth,
+  type TUI,
+} from '@earendil-works/pi-tui';
+import {
+  type HistoryScope,
+  isRecallablePrompt,
+  loadPromptHistory,
+  uniqueNewest,
+} from './history.ts';
 
 type Usage = {
   input: number;
@@ -52,8 +73,177 @@ function getUsage(ctx: ExtensionContext) {
   return { totals, latestCacheHitRate };
 }
 
+class HistoryEditor extends CustomEditor {
+  private prompts: string[] = [];
+  onReverseSearch?: () => void;
+
+  setHistory(prompts: string[]): void {
+    this.prompts = [];
+    for (const prompt of prompts) this.addToHistory(prompt);
+  }
+
+  getHistory(): string[] {
+    return this.prompts;
+  }
+
+  override addToHistory(text: string): void {
+    const trimmed = text.trim();
+    if (isRecallablePrompt(trimmed)) {
+      this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
+    }
+    super.addToHistory(text);
+  }
+
+  override handleInput(data: string): void {
+    if (matchesKey(data, 'ctrl+r')) {
+      this.onReverseSearch?.();
+      return;
+    }
+    super.handleInput(data);
+  }
+}
+
+class ReverseSearch implements Component {
+  private query: string;
+  private scope: HistoryScope = 'current';
+  private readonly prompts: Record<HistoryScope, string[] | undefined>;
+  private loadingAll = false;
+  private list: SelectList;
+  private readonly header = new Text('', 1, 0);
+  private readonly loadAllPrompts: () => Promise<string[]>;
+  private readonly tui: TUI;
+  private readonly theme: Theme;
+  private readonly listTheme: SelectListTheme;
+  private readonly done: (value: string | null) => void;
+
+  constructor(
+    currentPrompts: string[],
+    initialQuery: string,
+    loadAllPrompts: () => Promise<string[]>,
+    tui: TUI,
+    theme: Theme,
+    listTheme: SelectListTheme,
+    done: (value: string | null) => void,
+  ) {
+    this.loadAllPrompts = loadAllPrompts;
+    this.tui = tui;
+    this.theme = theme;
+    this.listTheme = listTheme;
+    this.done = done;
+    this.query = initialQuery.trim();
+    this.prompts = { current: currentPrompts, all: undefined };
+    this.list = this.buildList();
+    this.refreshHeader();
+  }
+
+  private buildList(): SelectList {
+    const ordered = [...(this.prompts[this.scope] ?? [])].reverse();
+    const prompts = this.query ? fuzzyFilter(ordered, this.query, (p) => p) : ordered;
+    const items = prompts.map((prompt) => ({
+      value: prompt,
+      label: prompt.replace(/\s+/g, ' ').trim(),
+    }));
+    const list = new SelectList(items, 10, this.listTheme);
+    list.onSelect = (item) => this.done(item.value);
+    list.onCancel = () => this.done(null);
+    return list;
+  }
+
+  private refreshHeader(): void {
+    const tabs = (['current', 'all'] as const)
+      .map((scope) => {
+        const label = scope === 'current' ? 'Current folder' : 'All folders';
+        return this.scope === scope
+          ? this.theme.fg('accent', `[${label}]`)
+          : this.theme.fg('dim', label);
+      })
+      .join(this.theme.fg('dim', '  '));
+    const label = this.theme.fg('accent', 'reverse-search');
+    const query = this.query
+      ? this.theme.fg('toolOutput', this.query)
+      : this.theme.fg('dim', '(type to filter)');
+    const loading =
+      this.scope === 'all' && this.loadingAll ? this.theme.fg('dim', ' loading…') : '';
+    const hint = this.theme.fg('dim', '  Tab scope · ↑↓ move · Enter load · Esc cancel');
+    this.header.setText(`${tabs}\n${label}: ${query}${loading}${hint}`);
+  }
+
+  private refresh(): void {
+    this.list = this.buildList();
+    this.refreshHeader();
+    this.tui.requestRender();
+  }
+
+  private switchScope(): void {
+    this.scope = this.scope === 'current' ? 'all' : 'current';
+    if (this.scope === 'all' && !this.prompts.all && !this.loadingAll) {
+      this.loadingAll = true;
+      void this.loadAllPrompts()
+        .catch(() => [])
+        .then((prompts) => {
+          this.prompts.all = prompts;
+          this.loadingAll = false;
+          this.refresh();
+        });
+    }
+    this.refresh();
+  }
+
+  handleInput(data: string): void {
+    if (matchesKey(data, 'escape')) {
+      this.done(null);
+    } else if (matchesKey(data, 'return') || matchesKey(data, 'enter')) {
+      this.done(this.list.getSelectedItem()?.value ?? null);
+    } else if (
+      matchesKey(data, 'tab') ||
+      matchesKey(data, 'right') ||
+      matchesKey(data, 'shift+tab') ||
+      matchesKey(data, 'left')
+    ) {
+      this.switchScope();
+    } else if (matchesKey(data, 'up') || matchesKey(data, 'down')) {
+      this.list.handleInput(data);
+      this.tui.requestRender();
+    } else if (matchesKey(data, 'backspace')) {
+      if (!this.query) return;
+      this.query = this.query.slice(0, -1);
+      this.refresh();
+    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+      this.query += data;
+      this.refresh();
+    }
+  }
+
+  render(width: number): string[] {
+    return [...this.header.render(width), ...this.list.render(width)];
+  }
+
+  invalidate(): void {
+    this.header.invalidate();
+    this.list.invalidate();
+  }
+}
+
+async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
+  const listTheme = getSelectListTheme();
+  const result = await ctx.ui.custom<string | null>(
+    (tui, theme, _kb, done) =>
+      new ReverseSearch(
+        editor.getHistory(),
+        ctx.ui.getEditorText(),
+        async () =>
+          uniqueNewest([...(await loadPromptHistory(ctx.cwd, 'all')), ...editor.getHistory()]),
+        tui,
+        theme,
+        listTheme,
+        done,
+      ),
+  );
+  if (result) ctx.ui.setEditorText(result);
+}
+
 export default function (pi: ExtensionAPI) {
-  pi.on('session_start', (_event, ctx) => {
+  pi.on('session_start', async (_event, ctx) => {
     if (ctx.mode !== 'tui') return;
     ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());
@@ -114,6 +304,14 @@ export default function (pi: ExtensionAPI) {
           return lines;
         },
       };
+    });
+
+    const prompts = await loadPromptHistory(ctx.cwd, 'current');
+    ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+      const editor = new HistoryEditor(tui, theme, keybindings);
+      editor.setHistory(prompts);
+      editor.onReverseSearch = () => void openReverseSearch(ctx, editor);
+      return editor;
     });
   });
 }

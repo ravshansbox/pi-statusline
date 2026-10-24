@@ -1,7 +1,7 @@
 {
   "name": "@ravshansbox/pi-statusline",
   "version": "0.0.0",
-  "description": "Statusline extension for pi",
+  "description": "Statusline and prompt history extension for pi",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -15,7 +15,8 @@
   "keywords": [
     "pi-package",
     "pi-extension",
-    "statusline"
+    "statusline",
+    "prompt-history"
   ],
   "pi": {
     "extensions": [
@@ -42,7 +43,8 @@
     "typescript": "^7.0.2"
   },
   "files": [
-    "index.ts"
+    "index.ts",
+    "history.ts"
   ],
   "publishConfig": {
     "access": "public"
