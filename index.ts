@@ -78,17 +78,15 @@ export default function (pi: ExtensionAPI) {
             const level = ctx.thinkingLevel || 'off';
             topParts.push(level === 'off' ? 'thinking off' : level);
           }
-          const top = topParts.join(' • ');
-
-          const statsParts: string[] = [];
           const contextDisplay =
             contextPercent === '?'
               ? `?/${formatTokens(contextWindow)}`
               : `${contextPercent}%/${formatTokens(contextWindow)}`;
-          if (contextPercentValue > 90) statsParts.push(theme.fg('error', contextDisplay));
-          else if (contextPercentValue > 70) statsParts.push(theme.fg('warning', contextDisplay));
-          else statsParts.push(contextDisplay);
+          if (contextPercentValue > 90) topParts.push(theme.fg('error', contextDisplay));
+          else if (contextPercentValue > 70) topParts.push(theme.fg('warning', contextDisplay));
+          else topParts.push(contextDisplay);
 
+          const statsParts: string[] = [];
           if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
           if (totals.output) statsParts.push(`↓${formatTokens(totals.output)}`);
           if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
@@ -97,13 +95,14 @@ export default function (pi: ExtensionAPI) {
             statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
           }
 
+          if (statsParts.length > 0) topParts.push(statsParts.join(' '));
+
           if (process.env['PI_EXPERIMENTAL'] === '1') {
-            statsParts.push(`${theme.fg('dim', '•')} ${theme.bold(theme.fg('warning', 'xp'))}`);
+            topParts.push(theme.bold(theme.fg('warning', 'xp')));
           }
 
-          const statsLine = truncateToWidth(statsParts.join(' '), width, '...');
-          const topLine = truncateToWidth(theme.fg('dim', top), width, theme.fg('dim', '...'));
-          const lines = [topLine, theme.fg('dim', statsLine)];
+          const line = truncateToWidth(topParts.join(' • '), width, '...');
+          const lines = [theme.fg('dim', line)];
 
           const statuses = footerData.getExtensionStatuses();
           if (statuses.size > 0) {

@@ -70,11 +70,11 @@ function render(options: {
 }
 
 test('shows the directory name, git branch, model and thinking level', () => {
-  assert.equal(render({ branch: 'main' })[0], 'project • main • opus • high');
+  assert.equal(render({ branch: 'main' })[0], 'project • main • opus • high • 25%/200k');
 });
 
 test('leaves out the git branch outside a repository', () => {
-  assert.equal(render({})[0], 'project • opus • high');
+  assert.equal(render({})[0], 'project • opus • high • 25%/200k');
 });
 
 test('shows token usage and context', () => {
@@ -85,8 +85,8 @@ test('shows token usage and context', () => {
         message: { role: 'assistant', usage: usage(8, 1400, 26000, 6400) },
       },
     ],
-  })[1];
-  assert.equal(line, '25%/200k ↑8 ↓1k R26k W6k CH80%');
+  })[0];
+  assert.equal(line, 'project • opus • high • 25%/200k • ↑8 ↓1k R26k W6k CH80%');
 });
 
 test('shows extension statuses sorted by key', () => {
@@ -94,5 +94,5 @@ test('shows extension statuses sorted by key', () => {
     ['b', 'second'],
     ['a', 'first\nline'],
   ]);
-  assert.equal(render({ statuses })[2], 'first line second');
+  assert.equal(render({ statuses })[1], 'first line second');
 });
