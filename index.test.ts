@@ -20,6 +20,7 @@ function render(options: {
   entries?: unknown[];
   branch?: string | null;
   statuses?: Map<string, string>;
+  providerCount?: number;
   width?: number;
 }): string[] {
   const handlers = new Map<string, Handler>();
@@ -64,7 +65,7 @@ function render(options: {
   const footerData = {
     getGitBranch: () => options.branch ?? null,
     getExtensionStatuses: () => options.statuses ?? new Map(),
-    getAvailableProviderCount: () => 1,
+    getAvailableProviderCount: () => options.providerCount ?? 1,
     onBranchChange: () => () => {},
   };
   return factory({ requestRender: () => {} }, theme, footerData).render(options.width ?? 80);
@@ -87,6 +88,11 @@ test('shows token usage, cost and context on the left and the model on the right
     line,
     `${'↑1.2k ↓340 R800 W200 CH36.4% $0.012 25.0%/200k (auto)'.padEnd(62)}claude-opus • high`,
   );
+});
+
+test('hides the provider when several providers are available', () => {
+  const line = render({ providerCount: 2 })[1];
+  assert.equal(line, `${'25.0%/200k (auto)'.padEnd(62)}claude-opus • high`);
 });
 
 test('shows extension statuses sorted by key', () => {

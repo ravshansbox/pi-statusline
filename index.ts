@@ -136,18 +136,10 @@ export default function (pi: ExtensionAPI) {
 
           const minPadding = 2;
           const modelName = model?.id || 'no-model';
-          let rightWithoutProvider = modelName;
+          let right = modelName;
           if (model?.reasoning) {
             const level = ctx.thinkingLevel || 'off';
-            rightWithoutProvider =
-              level === 'off' ? `${modelName} • thinking off` : `${modelName} • ${level}`;
-          }
-
-          let right = rightWithoutProvider;
-          if (footerData.getAvailableProviderCount() > 1 && model) {
-            right = `(${model.provider}) ${rightWithoutProvider}`;
-            if (statsLeftWidth + minPadding + visibleWidth(right) > width)
-              right = rightWithoutProvider;
+            right = level === 'off' ? `${modelName} • thinking off` : `${modelName} • ${level}`;
           }
 
           const rightWidth = visibleWidth(right);
