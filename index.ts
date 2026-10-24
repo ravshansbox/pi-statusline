@@ -7,7 +7,6 @@ type Usage = {
   output: number;
   cacheRead: number;
   cacheWrite: number;
-  cost: { total: number };
 };
 
 function sanitizeStatusText(text: string): string {
@@ -32,14 +31,13 @@ function formatCwd(cwd: string, home: string | undefined): string {
 }
 
 function getUsage(ctx: ExtensionContext) {
-  const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+  const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let latestCacheHitRate: number | undefined;
   const add = (u: Usage) => {
     totals.input += u.input;
     totals.output += u.output;
     totals.cacheRead += u.cacheRead;
     totals.cacheWrite += u.cacheWrite;
-    totals.cost += u.cost.total;
   };
   for (const entry of ctx.sessionManager.getEntries()) {
     if (entry.type === 'usage') {
@@ -95,15 +93,6 @@ export default function (pi: ExtensionAPI) {
           if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
           if ((totals.cacheRead > 0 || totals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
             statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
-          }
-
-          const usingSubscription = model
-            ? model.provider === 'kimi-coding' ||
-              (ctx.modelRegistry.isUsingOAuth(model) &&
-                ctx.modelRegistry.getProvider(model.provider)?.auth.oauth?.isSubscription === true)
-            : false;
-          if (totals.cost || usingSubscription) {
-            statsParts.push(`$${totals.cost.toFixed(2)}${usingSubscription ? ' (sub)' : ''}`);
           }
 
           const contextDisplay =

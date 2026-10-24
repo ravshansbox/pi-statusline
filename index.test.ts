@@ -12,8 +12,8 @@ const theme = {
   bold: (text: string) => text,
 };
 
-function usage(input: number, output: number, cacheRead = 0, cacheWrite = 0, cost = 0) {
-  return { input, output, cacheRead, cacheWrite, cost: { total: cost } };
+function usage(input: number, output: number, cacheRead = 0, cacheWrite = 0) {
+  return { input, output, cacheRead, cacheWrite };
 }
 
 function render(options: {
@@ -75,16 +75,16 @@ test('shows the working directory and git branch', () => {
   assert.equal(render({ branch: 'main' })[0], '/tmp/project (main)');
 });
 
-test('shows token usage, cost and context on the left and the model on the right', () => {
+test('shows token usage and context on the left and the model on the right', () => {
   const line = render({
     entries: [
       {
         type: 'message',
-        message: { role: 'assistant', usage: usage(8, 1400, 26000, 6400, 0.065) },
+        message: { role: 'assistant', usage: usage(8, 1400, 26000, 6400) },
       },
     ],
   })[1];
-  assert.equal(line, `${'↑8 ↓1k R26k W6k CH80% $0.07 25%/200k'.padEnd(69)}opus • high`);
+  assert.equal(line, `${'↑8 ↓1k R26k W6k CH80% 25%/200k'.padEnd(69)}opus • high`);
 });
 
 test('hides the provider when several providers are available', () => {
