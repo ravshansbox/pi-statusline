@@ -19,10 +19,8 @@ function sanitizeStatusText(text: string): string {
 
 function formatTokens(count: number): string {
   if (count < 1000) return count.toString();
-  if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-  if (count < 1000000) return `${Math.round(count / 1000)}k`;
-  if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-  return `${Math.round(count / 1000000)}M`;
+  if (count < 999500) return `${Math.round(count / 1000)}k`;
+  return `${Math.round(count / 1000000)}m`;
 }
 
 function formatCwd(cwd: string, home: string | undefined): string {
@@ -79,7 +77,7 @@ export default function (pi: ExtensionAPI) {
           const contextWindow = contextUsage?.contextWindow ?? model?.contextWindow ?? 0;
           const contextPercentValue = contextUsage?.percent ?? 0;
           const contextPercent =
-            contextUsage?.percent != null ? contextPercentValue.toFixed(1) : '?';
+            contextUsage?.percent != null ? contextPercentValue.toFixed(0) : '?';
 
           let pwd = formatCwd(
             ctx.sessionManager.getCwd(),
@@ -96,7 +94,7 @@ export default function (pi: ExtensionAPI) {
           if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
           if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
           if ((totals.cacheRead > 0 || totals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
-            statsParts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
+            statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
           }
 
           const usingSubscription = model
@@ -105,7 +103,7 @@ export default function (pi: ExtensionAPI) {
                 ctx.modelRegistry.getProvider(model.provider)?.auth.oauth?.isSubscription === true)
             : false;
           if (totals.cost || usingSubscription) {
-            statsParts.push(`$${totals.cost.toFixed(3)}${usingSubscription ? ' (sub)' : ''}`);
+            statsParts.push(`$${totals.cost.toFixed(2)}${usingSubscription ? ' (sub)' : ''}`);
           }
 
           const contextDisplay =

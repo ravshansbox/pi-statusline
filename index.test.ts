@@ -80,16 +80,16 @@ test('shows token usage, cost and context on the left and the model on the right
     entries: [
       {
         type: 'message',
-        message: { role: 'assistant', usage: usage(1200, 340, 800, 200, 0.0123) },
+        message: { role: 'assistant', usage: usage(8, 1400, 26000, 6400, 0.065) },
       },
     ],
   })[1];
-  assert.equal(line, `${'↑1.2k ↓340 R800 W200 CH36.4% $0.012 25.0%/200k'.padEnd(69)}opus • high`);
+  assert.equal(line, `${'↑8 ↓1k R26k W6k CH80% $0.07 25%/200k'.padEnd(69)}opus • high`);
 });
 
 test('hides the provider when several providers are available', () => {
   const line = render({ providerCount: 2 })[1];
-  assert.equal(line, `${'25.0%/200k'.padEnd(69)}opus • high`);
+  assert.equal(line, `${'25%/200k'.padEnd(69)}opus • high`);
 });
 
 test('shows extension statuses sorted by key', () => {
