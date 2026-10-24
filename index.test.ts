@@ -21,6 +21,7 @@ function render(options: {
   branch?: string | null;
   statuses?: Map<string, string>;
   width?: number;
+  thinkingLevel?: string;
 }): string[] {
   const handlers = new Map<string, Handler>();
   const pi = {
@@ -41,7 +42,7 @@ function render(options: {
     mode: 'tui',
     cwd: '/tmp',
     model,
-    thinkingLevel: 'high',
+    thinkingLevel: options.thinkingLevel ?? 'high',
     ui: {
       setFooter: (f: Factory) => {
         factory = f;
@@ -70,11 +71,15 @@ function render(options: {
 }
 
 test('shows the directory name, git branch, model and thinking level', () => {
-  assert.equal(render({ branch: 'main' })[0], 'project • main • opus • high • 25%/200k');
+  assert.equal(render({ branch: 'main' })[0], 'project • main • opus:high • 25%/200k');
+});
+
+test('shows off when thinking is off', () => {
+  assert.equal(render({ thinkingLevel: 'off' })[0], 'project • opus:off • 25%/200k');
 });
 
 test('leaves out the git branch outside a repository', () => {
-  assert.equal(render({})[0], 'project • opus • high • 25%/200k');
+  assert.equal(render({})[0], 'project • opus:high • 25%/200k');
 });
 
 test('shows token usage and context', () => {
@@ -86,7 +91,7 @@ test('shows token usage and context', () => {
       },
     ],
   })[0];
-  assert.equal(line, 'project • opus • high • 25%/200k • ↑8 ↓1k R26k W6k CH80%');
+  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R26k W6k CH80%');
 });
 
 test('shows extension statuses sorted by key', () => {

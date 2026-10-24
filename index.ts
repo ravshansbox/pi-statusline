@@ -73,11 +73,9 @@ export default function (pi: ExtensionAPI) {
           const topParts = [basename(ctx.sessionManager.getCwd())];
           const branch = footerData.getGitBranch();
           if (branch) topParts.push(branch);
-          topParts.push(modelName);
-          if (model?.reasoning) {
-            const level = ctx.thinkingLevel || 'off';
-            topParts.push(level === 'off' ? 'thinking off' : level);
-          }
+          topParts.push(
+            model?.reasoning ? `${modelName}:${ctx.thinkingLevel || 'off'}` : modelName,
+          );
           const contextDisplay =
             contextPercent === '?'
               ? `?/${formatTokens(contextWindow)}`
