@@ -86,7 +86,7 @@ test('shows token usage and context', () => {
       },
     ],
   })[1];
-  assert.equal(line, '↑8 ↓1k R26k W6k CH80% 25%/200k');
+  assert.equal(line, '25%/200k ↑8 ↓1k R26k W6k CH80%');
 });
 
 test('shows extension statuses sorted by key', () => {

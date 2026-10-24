@@ -81,14 +81,6 @@ export default function (pi: ExtensionAPI) {
           const top = topParts.join(' • ');
 
           const statsParts: string[] = [];
-          if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
-          if (totals.output) statsParts.push(`↓${formatTokens(totals.output)}`);
-          if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
-          if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
-          if ((totals.cacheRead > 0 || totals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
-            statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
-          }
-
           const contextDisplay =
             contextPercent === '?'
               ? `?/${formatTokens(contextWindow)}`
@@ -96,6 +88,14 @@ export default function (pi: ExtensionAPI) {
           if (contextPercentValue > 90) statsParts.push(theme.fg('error', contextDisplay));
           else if (contextPercentValue > 70) statsParts.push(theme.fg('warning', contextDisplay));
           else statsParts.push(contextDisplay);
+
+          if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
+          if (totals.output) statsParts.push(`↓${formatTokens(totals.output)}`);
+          if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
+          if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
+          if ((totals.cacheRead > 0 || totals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
+            statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
+          }
 
           if (process.env['PI_EXPERIMENTAL'] === '1') {
             statsParts.push(`${theme.fg('dim', '•')} ${theme.bold(theme.fg('warning', 'xp'))}`);
