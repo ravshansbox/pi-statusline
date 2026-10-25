@@ -129,7 +129,7 @@ const editorTheme = {
   },
 };
 const keybindings = { matches: () => false };
-const muted = (text: string) => `\x1b[90m${text}\x1b[39m`;
+const themed = (color: string, text: string) => `\x1b[${color === 'dim' ? 2 : 90}m${text}\x1b[39m`;
 
 let sessionCount = 0;
 function writeSession(cwd: string, prompts: string[]) {
@@ -167,7 +167,7 @@ async function startEditor(cwd: string, sessionName?: string) {
     sessionManager: { getEntries: () => [], getCwd: () => cwd },
     getContextUsage: () => undefined,
     ui: {
-      theme: { fg: (_color: string, text: string) => muted(text) },
+      theme: { fg: themed },
       setFooter: () => {},
       setEditorComponent: (f: typeof editorFactory) => {
         editorFactory = f;
@@ -242,13 +242,13 @@ test('shows the session name at the right of the editor border', async () => {
   assert.equal(visibleWidth(top), 40);
 });
 
-test('draws the editor border in the muted theme colour', async () => {
+test('draws the editor border in the dim theme colour', async () => {
   const { editor } = await startEditor('/work/border');
   (editor as unknown as { borderColor: (t: string) => string }).borderColor = (t) =>
     `<thinkingMedium>${t}</thinkingMedium>`;
   const lines = editor.render(20);
-  assert.equal(lines[0], muted('─'.repeat(20)));
-  assert.equal(lines.at(-1), muted('─'.repeat(20)));
+  assert.equal(lines[0], themed('dim', '─'.repeat(20)));
+  assert.equal(lines.at(-1), themed('dim', '─'.repeat(20)));
 });
 
 test('keeps the bash mode editor border colour', async () => {
