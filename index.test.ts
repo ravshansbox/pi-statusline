@@ -233,6 +233,19 @@ test('filters reverse search by typed characters outside the basic plane', async
   assert.equal(await editorTextSet, 'ship it 🚀');
 });
 
+test('removes a whole character outside the basic plane on backspace in reverse search', async () => {
+  writeSession('/work/emoji-backspace', ['ship it 🚀', 'run tests']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/emoji-backspace');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('r');
+  search.handleInput('🚀');
+  search.handleInput('\x7f');
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'run tests');
+});
+
 test('filters reverse search by characters typed as Kitty key codes', async () => {
   writeSession('/work/kitty', ['run tests', 'deploy app']);
   const { editor, getSearch, editorTextSet } = await startEditor('/work/kitty');

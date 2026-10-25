@@ -259,7 +259,7 @@ class ReverseSearch implements Component {
       this.tui.requestRender();
     } else if (matchesKey(data, 'backspace')) {
       if (!this.query) return;
-      this.query = this.query.slice(0, -1);
+      this.query = Array.from(this.query).slice(0, -1).join('');
       this.refresh();
     } else {
       const typed = decodeKittyPrintable(data) ?? data;
