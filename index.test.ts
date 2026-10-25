@@ -39,6 +39,8 @@ function render(options: {
   statuses?: Map<string, string>;
   width?: number;
   thinkingLevel?: string;
+  percent?: number;
+  theme?: typeof theme;
 }): string[] {
   const handlers = new Map<string, Handler>();
   const pi = {
@@ -75,7 +77,11 @@ function render(options: {
       isUsingOAuth: () => false,
       getProvider: () => undefined,
     },
-    getContextUsage: () => ({ tokens: 50000, contextWindow: 200000, percent: 25 }),
+    getContextUsage: () => ({
+      tokens: 50000,
+      contextWindow: 200000,
+      percent: options.percent ?? 25,
+    }),
   };
   handlers.get('session_start')?.({ type: 'session_start' }, ctx);
   assert.ok(factory);
@@ -85,7 +91,9 @@ function render(options: {
     getExtensionStatuses: () => options.statuses ?? new Map(),
     onBranchChange: () => () => {},
   };
-  return factory({ requestRender: () => {} }, theme, footerData).render(options.width ?? 80);
+  return factory({ requestRender: () => {} }, options.theme ?? theme, footerData).render(
+    options.width ?? 80,
+  );
 }
 
 const tui = { terminal: { rows: 40, columns: 80 }, requestRender: () => {} };
@@ -214,4 +222,29 @@ test('shows extension statuses sorted by key', () => {
     ['a', 'first\nline'],
   ]);
   assert.equal(render({ statuses })[1], 'first line second');
+});
+
+test('keeps stats dim after a highlighted context usage', () => {
+  const tagTheme = {
+    fg: (color: string, text: string) => `<${color}>${text}</>`,
+    bold: (text: string) => text,
+  };
+  const line = render({
+    percent: 95,
+    width: 200,
+    theme: tagTheme,
+    entries: [{ type: 'message', message: { role: 'assistant', usage: usage(8, 0) } }],
+  })[0];
+  assert.ok(line);
+  let colour = '';
+  const colours: string[] = [];
+  for (const part of line.split(/(<\w+>|<\/>)/)) {
+    if (part === '</>') colour = '';
+    else if (/^<\w+>$/.test(part)) colour = part.slice(1, -1);
+    else colours.push(...[...part].map(() => colour));
+  }
+  const plain = line.replace(/<\w+>|<\/>/g, '');
+  assert.equal(plain, 'project • opus:high • 95%/200k • ↑8');
+  assert.equal(colours[plain.indexOf('95%')], 'error');
+  assert.equal(colours[plain.indexOf('↑8')], 'dim');
 });

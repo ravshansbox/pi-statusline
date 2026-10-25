@@ -260,11 +260,12 @@ export default function (pi: ExtensionAPI) {
             contextUsage?.percent != null ? contextPercentValue.toFixed(0) : '?';
 
           const modelName = model?.id.replace(/^claude-/, '') || 'no-model';
-          const topParts = [basename(ctx.sessionManager.getCwd())];
+          const dim = (text: string) => theme.fg('dim', text);
+          const topParts = [dim(basename(ctx.sessionManager.getCwd()))];
           const branch = footerData.getGitBranch();
-          if (branch) topParts.push(branch);
+          if (branch) topParts.push(dim(branch));
           topParts.push(
-            model?.reasoning ? `${modelName}:${ctx.thinkingLevel || 'off'}` : modelName,
+            dim(model?.reasoning ? `${modelName}:${ctx.thinkingLevel || 'off'}` : modelName),
           );
           const contextDisplay =
             contextPercent === '?'
@@ -272,7 +273,7 @@ export default function (pi: ExtensionAPI) {
               : `${contextPercent}%/${formatTokens(contextWindow)}`;
           if (contextPercentValue > 90) topParts.push(theme.fg('error', contextDisplay));
           else if (contextPercentValue > 70) topParts.push(theme.fg('warning', contextDisplay));
-          else topParts.push(contextDisplay);
+          else topParts.push(dim(contextDisplay));
 
           const statsParts: string[] = [];
           if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
@@ -283,14 +284,13 @@ export default function (pi: ExtensionAPI) {
             statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
           }
 
-          if (statsParts.length > 0) topParts.push(statsParts.join(' '));
+          if (statsParts.length > 0) topParts.push(dim(statsParts.join(' ')));
 
           if (process.env['PI_EXPERIMENTAL'] === '1') {
             topParts.push(theme.bold(theme.fg('warning', 'xp')));
           }
 
-          const line = truncateToWidth(topParts.join(' • '), width, '...');
-          const lines = [theme.fg('dim', line)];
+          const lines = [truncateToWidth(topParts.join(dim(' • ')), width, dim('...'))];
 
           const statuses = footerData.getExtensionStatuses();
           if (statuses.size > 0) {
