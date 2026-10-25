@@ -218,6 +218,21 @@ test('shows the working indicator in the editor border', async () => {
   assert.match(editor.render(80)[0] ?? '', /Working/);
 });
 
+test('dims the working indicator in the editor border', async () => {
+  const { editor } = await startEditor('/work/status-dim');
+  const indicator = {
+    renderInBorder: () => '\x1b[36m\u280b\x1b[39m \x1b[90mWorking\x1b[39m',
+    renderSpinnerInBorder: () => '\x1b[36m\u280b\x1b[39m',
+    render: () => [],
+    invalidate: () => {},
+  };
+  (
+    editor as unknown as { setWorkingStatusIndicator: (i: unknown) => void }
+  ).setWorkingStatusIndicator(indicator);
+  assert.ok(editor.render(40)[0]?.includes(themed('dim', '\u280b Working')));
+  assert.ok(editor.render(3)[0]?.includes(themed('dim', '\u280b')));
+});
+
 test('names the session with the set_session_name tool', async () => {
   const { tools, names } = fakePi();
   const tool = tools.get('set_session_name');

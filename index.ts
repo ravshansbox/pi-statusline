@@ -83,6 +83,18 @@ class HistoryEditor extends CustomEditor {
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
 
+  override setWorkingStatusIndicator(
+    indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0],
+  ): void {
+    if (!indicator) return super.setWorkingStatusIndicator(indicator);
+    const dim = (text: string) =>
+      this.dimColor ? this.dimColor(stripTerminalSequences(text)) : text;
+    const dimmed = Object.create(indicator) as typeof indicator;
+    dimmed.renderInBorder = (width) => dim(indicator.renderInBorder(width));
+    dimmed.renderSpinnerInBorder = (width) => dim(indicator.renderSpinnerInBorder(width));
+    super.setWorkingStatusIndicator(dimmed);
+  }
+
   override render(width: number): string[] {
     const assigned = this.borderColor;
     if (this.dimColor && !this.getText().trimStart().startsWith('!')) {
