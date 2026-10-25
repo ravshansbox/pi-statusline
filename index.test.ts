@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { initTheme, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { visibleWidth } from '@earendil-works/pi-tui';
+import { stripTerminalSequences, visibleWidth } from '@earendil-works/pi-tui';
 import extension from './index.ts';
 
 const agentDir = mkdtempSync(join(tmpdir(), 'pi-statusline-'));
@@ -129,6 +129,7 @@ const editorTheme = {
   },
 };
 const keybindings = { matches: () => false };
+const muted = (text: string) => `\x1b[90m${text}\x1b[39m`;
 
 let sessionCount = 0;
 function writeSession(cwd: string, prompts: string[]) {
@@ -166,6 +167,7 @@ async function startEditor(cwd: string, sessionName?: string) {
     sessionManager: { getEntries: () => [], getCwd: () => cwd },
     getContextUsage: () => undefined,
     ui: {
+      theme: { fg: (_color: string, text: string) => muted(text) },
       setFooter: () => {},
       setEditorComponent: (f: typeof editorFactory) => {
         editorFactory = f;
@@ -236,8 +238,25 @@ test('hides the set_session_name tool output', () => {
 test('shows the session name at the right of the editor border', async () => {
   const { editor } = await startEditor('/work/name', 'fix login bug');
   const top = editor.render(40)[0] ?? '';
-  assert.ok(top.endsWith(' fix login bug ──'), top);
+  assert.ok(stripTerminalSequences(top).endsWith(' fix login bug ──'), top);
   assert.equal(visibleWidth(top), 40);
+});
+
+test('draws the editor border in the muted theme colour', async () => {
+  const { editor } = await startEditor('/work/border');
+  (editor as unknown as { borderColor: (t: string) => string }).borderColor = (t) =>
+    `<thinkingMedium>${t}</thinkingMedium>`;
+  const lines = editor.render(20);
+  assert.equal(lines[0], muted('─'.repeat(20)));
+  assert.equal(lines.at(-1), muted('─'.repeat(20)));
+});
+
+test('keeps the bash mode editor border colour', async () => {
+  const { editor } = await startEditor('/work/bash');
+  for (const key of '!ls') editor.handleInput(key);
+  (editor as unknown as { borderColor: (t: string) => string }).borderColor = (t) =>
+    `<bashMode>${t}</bashMode>`;
+  assert.equal(editor.render(20)[0], `<bashMode>${'─'.repeat(20)}</bashMode>`);
 });
 
 test('shows the session name next to the working indicator', async () => {
@@ -248,14 +267,14 @@ test('shows the session name next to the working indicator', async () => {
   ).setWorkingStatusIndicator(indicator);
   const top = editor.render(40)[0] ?? '';
   assert.match(top, /Working/);
-  assert.ok(top.endsWith(' fix login bug ──'), top);
+  assert.ok(stripTerminalSequences(top).endsWith(' fix login bug ──'), top);
 });
 
 test('shortens the session name when the border is narrow', async () => {
   const { editor } = await startEditor('/work/name-narrow', 'a very long session name');
   const top = editor.render(14)[0] ?? '';
   assert.match(top, /a very.*…/);
-  assert.ok(top.endsWith(' ──'), top);
+  assert.ok(stripTerminalSequences(top).endsWith(' ──'), top);
   assert.equal(visibleWidth(top), 14);
 });
 

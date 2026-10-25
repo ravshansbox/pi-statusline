@@ -81,6 +81,19 @@ class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
   onReverseSearch?: () => void;
   getSessionName?: () => string | undefined;
+  mutedColor?: (text: string) => string;
+
+  override render(width: number): string[] {
+    const assigned = this.borderColor;
+    if (this.mutedColor && !this.getText().trimStart().startsWith('!')) {
+      this.borderColor = this.mutedColor;
+    }
+    try {
+      return super.render(width);
+    } finally {
+      this.borderColor = assigned;
+    }
+  }
 
   protected override renderTopBorder(width: number, hiddenLineCount: number): string {
     const border = super.renderTopBorder(width, hiddenLineCount);
@@ -350,6 +363,7 @@ export default function (pi: ExtensionAPI) {
       const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);
       editor.getSessionName = () => pi.getSessionName();
+      editor.mutedColor = (text) => ctx.ui.theme.fg('muted', text);
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor);
       return editor;
     });
