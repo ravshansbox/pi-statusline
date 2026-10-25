@@ -15,7 +15,7 @@ Add `-l` to install it in project settings.
 Pi loads the extension from `./index.ts`. It replaces the built-in footer with a statusline that shows:
 
 - the directory name, git branch, model and thinking level
-- token usage, cache hit rate and context usage
+- token usage, cache hit rate (only when below 80%) and context usage
 - statuses set by other extensions, at the end of the line
 
 It also replaces the editor to add shell-style prompt history:

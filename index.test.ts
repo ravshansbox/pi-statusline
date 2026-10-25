@@ -218,11 +218,23 @@ test('shows token usage and context', () => {
     entries: [
       {
         type: 'message',
-        message: { role: 'assistant', usage: usage(8, 1400, 26000, 6400) },
+        message: { role: 'assistant', usage: usage(8, 1400, 26000, 7000) },
       },
     ],
   })[0];
-  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R26k W6k CH80%');
+  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R26k W7k CH79%');
+});
+
+test('hides cache hit rate when it rounds to 80% or above', () => {
+  const line = render({
+    entries: [
+      {
+        type: 'message',
+        message: { role: 'assistant', usage: usage(8, 1400, 7960, 2040) },
+      },
+    ],
+  })[0];
+  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R8k W2k');
 });
 
 test('shows extension statuses sorted by key at the end of the line', () => {

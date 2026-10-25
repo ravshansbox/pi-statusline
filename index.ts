@@ -283,8 +283,13 @@ export default function (pi: ExtensionAPI) {
           if (totals.output) statsParts.push(`↓${formatTokens(totals.output)}`);
           if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
           if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
-          if ((totals.cacheRead > 0 || totals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
-            statsParts.push(`CH${latestCacheHitRate.toFixed(0)}%`);
+          const cacheHitRate = latestCacheHitRate?.toFixed(0);
+          if (
+            (totals.cacheRead > 0 || totals.cacheWrite > 0) &&
+            cacheHitRate !== undefined &&
+            Number(cacheHitRate) < 80
+          ) {
+            statsParts.push(`CH${cacheHitRate}%`);
           }
 
           if (statsParts.length > 0) topParts.push(dim(statsParts.join(' ')));
