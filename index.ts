@@ -11,11 +11,14 @@ import {
   fuzzyFilter,
   matchesKey,
   SelectList,
+  stripTerminalSequences,
   type SelectListTheme,
   Text,
   truncateToWidth,
   type TUI,
+  visibleWidth,
 } from '@earendil-works/pi-tui';
+import { Type } from 'typebox';
 import {
   type HistoryScope,
   isRecallablePrompt,
@@ -76,6 +79,19 @@ function getUsage(ctx: ExtensionContext) {
 class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
   onReverseSearch?: () => void;
+  getSessionName?: () => string | undefined;
+
+  protected override renderTopBorder(width: number, hiddenLineCount: number): string {
+    const border = super.renderTopBorder(width, hiddenLineCount);
+    const name = sanitizeStatusText(this.getSessionName?.() ?? '');
+    if (!name) return border;
+    const plain = stripTerminalSequences(border);
+    const freeWidth = plain.length - plain.replace(/\u2500+$/, '').length;
+    const maxNameWidth = freeWidth - 5;
+    if (maxNameWidth < 1) return border;
+    const label = ` ${truncateToWidth(name, maxNameWidth, '\u2026')} \u2500\u2500`;
+    return truncateToWidth(border, width - visibleWidth(label), '') + this.borderColor(label);
+  }
 
   setHistory(prompts: string[]): void {
     this.prompts = [];
@@ -246,6 +262,24 @@ async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
 }
 
 export default function (pi: ExtensionAPI) {
+  pi.registerTool({
+    name: 'set_session_name',
+    label: 'Set session name',
+    description:
+      'Set a short name for the current session. Pi shows it in the editor border and the session list.',
+    promptSnippet: 'Set a short name for the current session',
+    promptGuidelines: [
+      'Call set_session_name with a short name (2\u20135 words) once the task is clear, and again if the task changes substantially.',
+    ],
+    parameters: Type.Object({
+      name: Type.String({ description: 'Short session name' }),
+    }),
+    async execute(_toolCallId, params) {
+      pi.setSessionName(params.name);
+      return { content: [{ type: 'text', text: `Session named: ${params.name}` }], details: {} };
+    },
+  });
+
   pi.on('session_start', async (_event, ctx) => {
     if (ctx.mode !== 'tui') return;
     ctx.ui.setFooter((tui, theme, footerData) => {
@@ -313,6 +347,7 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);
+      editor.getSessionName = () => pi.getSessionName();
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor);
       return editor;
     });

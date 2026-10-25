@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { initTheme, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { visibleWidth } from '@earendil-works/pi-tui';
 import extension from './index.ts';
 
 const agentDir = mkdtempSync(join(tmpdir(), 'pi-statusline-'));
@@ -23,6 +24,31 @@ type CustomFactory = (
   done: (value: string | null) => void,
 ) => Component;
 type Handler = (event: unknown, ctx: unknown) => unknown;
+type Tool = {
+  name: string;
+  promptGuidelines?: string[];
+  execute: (id: string, params: { name: string }) => Promise<unknown>;
+};
+
+function fakePi(sessionName?: string) {
+  const handlers = new Map<string, Handler>();
+  const tools = new Map<string, Tool>();
+  const names: string[] = [];
+  const pi = {
+    on: (event: string, h: Handler) => {
+      handlers.set(event, h);
+    },
+    registerTool: (tool: Tool) => {
+      tools.set(tool.name, tool);
+    },
+    setSessionName: (name: string) => {
+      names.push(name);
+    },
+    getSessionName: () => sessionName,
+  } as unknown as ExtensionAPI;
+  extension(pi);
+  return { handlers, tools, names };
+}
 
 const theme = {
   fg: (_color: string, text: string) => text,
@@ -42,13 +68,7 @@ function render(options: {
   percent?: number;
   theme?: typeof theme;
 }): string[] {
-  const handlers = new Map<string, Handler>();
-  const pi = {
-    on: (event: string, h: Handler) => {
-      handlers.set(event, h);
-    },
-  } as unknown as ExtensionAPI;
-  extension(pi);
+  const { handlers } = fakePi();
 
   let factory: Factory | undefined;
   const model = {
@@ -129,14 +149,8 @@ function writeSession(cwd: string, prompts: string[]) {
   writeFileSync(file, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
 }
 
-async function startEditor(cwd: string) {
-  const handlers = new Map<string, Handler>();
-  const pi = {
-    on: (event: string, h: Handler) => {
-      handlers.set(event, h);
-    },
-  } as unknown as ExtensionAPI;
-  extension(pi);
+async function startEditor(cwd: string, sessionName?: string) {
+  const { handlers } = fakePi(sessionName);
 
   let editorFactory: ((tui: unknown, theme: unknown, kb: unknown) => Component) | undefined;
   let search: Component | undefined;
@@ -199,6 +213,41 @@ test('shows the working indicator in the editor border', async () => {
     editor as unknown as { setWorkingStatusIndicator: (i: unknown) => void }
   ).setWorkingStatusIndicator(indicator);
   assert.match(editor.render(80)[0] ?? '', /Working/);
+});
+
+test('names the session with the set_session_name tool', async () => {
+  const { tools, names } = fakePi();
+  const tool = tools.get('set_session_name');
+  assert.ok(tool);
+  assert.match(tool.promptGuidelines?.join('\n') ?? '', /set_session_name/);
+  await tool.execute('call-1', { name: 'fix login bug' });
+  assert.deepEqual(names, ['fix login bug']);
+});
+
+test('shows the session name at the right of the editor border', async () => {
+  const { editor } = await startEditor('/work/name', 'fix login bug');
+  const top = editor.render(40)[0] ?? '';
+  assert.ok(top.endsWith(' fix login bug ──'), top);
+  assert.equal(visibleWidth(top), 40);
+});
+
+test('shows the session name next to the working indicator', async () => {
+  const { editor } = await startEditor('/work/name-working', 'fix login bug');
+  const indicator = { renderInBorder: () => 'Working', render: () => [], invalidate: () => {} };
+  (
+    editor as unknown as { setWorkingStatusIndicator: (i: unknown) => void }
+  ).setWorkingStatusIndicator(indicator);
+  const top = editor.render(40)[0] ?? '';
+  assert.match(top, /Working/);
+  assert.ok(top.endsWith(' fix login bug ──'), top);
+});
+
+test('shortens the session name when the border is narrow', async () => {
+  const { editor } = await startEditor('/work/name-narrow', 'a very long session name');
+  const top = editor.render(14)[0] ?? '';
+  assert.match(top, /a very.*…/);
+  assert.ok(top.endsWith(' ──'), top);
+  assert.equal(visibleWidth(top), 14);
 });
 
 test('shows the directory name, git branch, model and thinking level', () => {
