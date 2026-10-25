@@ -222,6 +222,28 @@ test('filters reverse search by pasted text', async () => {
   assert.equal(await editorTextSet, 'deploy app');
 });
 
+test('filters reverse search by typed characters outside the basic plane', async () => {
+  writeSession('/work/emoji', ['ship it 🚀', 'run tests']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/emoji');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('🚀');
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'ship it 🚀');
+});
+
+test('filters reverse search by characters typed as Kitty key codes', async () => {
+  writeSession('/work/kitty', ['run tests', 'deploy app']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/kitty');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\x1b[114u');
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'run tests');
+});
+
 test('shows the working indicator in the editor border', async () => {
   const { editor } = await startEditor('/work/status');
   const indicator = { renderInBorder: () => 'Working', render: () => [], invalidate: () => {} };

@@ -9,6 +9,7 @@ import {
 import {
   type Component,
   Container,
+  decodeKittyPrintable,
   fuzzyFilter,
   matchesKey,
   SelectList,
@@ -260,8 +261,10 @@ class ReverseSearch implements Component {
       if (!this.query) return;
       this.query = this.query.slice(0, -1);
       this.refresh();
-    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
-      this.query += data;
+    } else {
+      const typed = decodeKittyPrintable(data) ?? data;
+      if (!typed || /\p{Cc}/u.test(typed)) return;
+      this.query += typed;
       this.refresh();
     }
   }
