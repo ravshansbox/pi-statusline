@@ -342,6 +342,21 @@ test('shows extension statuses sorted by key at the end of the line', () => {
   assert.deepEqual(render({ statuses }), ['project • opus:high • 25%/200k • first line • second']);
 });
 
+test('moves extension statuses to a second line when the line does not fit', () => {
+  const statuses = new Map([
+    ['a', 'quota 42%'],
+    ['b', 'second'],
+  ]);
+  assert.deepEqual(render({ statuses, width: 40 }), [
+    'project • opus:high • 25%/200k',
+    'quota 42% • second',
+  ]);
+  assert.deepEqual(render({ statuses, width: 12 }).map(stripTerminalSequences), [
+    'project •...',
+    'quota 42%...',
+  ]);
+});
+
 test('keeps stats dim after a highlighted context usage', () => {
   const tagTheme = {
     fg: (color: string, text: string) => `<${color}>${text}</>`,

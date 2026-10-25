@@ -361,13 +361,19 @@ export default function (pi: ExtensionAPI) {
             topParts.push(theme.bold(theme.fg('warning', 'xp')));
           }
 
-          for (const [, text] of Array.from(footerData.getExtensionStatuses().entries()).sort(
-            ([a], [b]) => a.localeCompare(b),
-          )) {
-            topParts.push(sanitizeStatusText(text));
-          }
+          const statusParts = Array.from(footerData.getExtensionStatuses().entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([, text]) => sanitizeStatusText(text));
 
-          return [truncateToWidth(topParts.join(dim(' • ')), width, dim('...'))];
+          const separator = dim(' • ');
+          const line = [...topParts, ...statusParts].join(separator);
+          if (statusParts.length === 0 || visibleWidth(line) <= width) {
+            return [truncateToWidth(line, width, dim('...'))];
+          }
+          return [
+            truncateToWidth(topParts.join(separator), width, dim('...')),
+            truncateToWidth(statusParts.join(separator), width, dim('...')),
+          ];
         },
       };
     });
