@@ -133,6 +133,8 @@ class HistoryEditor extends CustomEditor {
     const trimmed = text.trim();
     if (isRecallablePrompt(trimmed)) {
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
+      const base = this as unknown as { history: string[] };
+      base.history = base.history.filter((prompt) => prompt !== trimmed);
     }
     super.addToHistory(text);
   }

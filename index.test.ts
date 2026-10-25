@@ -15,6 +15,7 @@ type Component = {
   render(width: number): string[];
   handleInput(data: string): void;
   getText(): string;
+  addToHistory?(text: string): void;
 };
 type Factory = (tui: unknown, theme: unknown, footerData: unknown) => Component;
 type CustomFactory = (
@@ -198,6 +199,18 @@ test('recalls prompts from earlier sessions in the same folder with up', async (
   assert.equal(editor.getText(), 'first');
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'first');
+});
+
+test('recalls a prompt sent again only at its newest position with up', async () => {
+  writeSession('/work/repeat', ['first', 'second']);
+  const { editor } = await startEditor('/work/repeat');
+  editor.addToHistory?.('first');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'first');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'second');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'second');
 });
 
 test('loads a prompt chosen in reverse search with ctrl+r', async () => {
