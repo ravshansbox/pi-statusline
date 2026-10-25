@@ -211,6 +211,16 @@ test('skips expanded skill commands from earlier sessions in up history', async 
   assert.equal(editor.getText(), 'first');
 });
 
+test('skips expanded skill commands replayed from a resumed session in up history', async () => {
+  writeSession('/work/skill-replay', ['first']);
+  const { editor } = await startEditor('/work/skill-replay');
+  (editor as Component & { addToHistory(text: string): void }).addToHistory(
+    '<skill name="demo" location="/skills/demo/SKILL.md">\nbody\n</skill>\n\ndo it',
+  );
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'first');
+});
+
 test('recalls a prompt sent again only at its newest position with up', async () => {
   writeSession('/work/repeat', ['first', 'second']);
   const { editor } = await startEditor('/work/repeat');

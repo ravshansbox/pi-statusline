@@ -24,6 +24,7 @@ import { Type } from 'typebox';
 import {
   type HistoryScope,
   isRecallablePrompt,
+  isSkillBlock,
   loadPromptHistory,
   uniqueNewest,
 } from './history.ts';
@@ -131,6 +132,7 @@ class HistoryEditor extends CustomEditor {
 
   override addToHistory(text: string): void {
     const trimmed = text.trim();
+    if (isSkillBlock(trimmed)) return;
     if (isRecallablePrompt(trimmed)) {
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
       const base = this as unknown as { history: string[] };
