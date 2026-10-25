@@ -201,6 +201,16 @@ test('recalls prompts from earlier sessions in the same folder with up', async (
   assert.equal(editor.getText(), 'first');
 });
 
+test('skips expanded skill commands from earlier sessions in up history', async () => {
+  writeSession('/work/skill', [
+    'first',
+    '<skill name="demo" location="/skills/demo/SKILL.md">\nReferences are relative to /skills/demo.\n\nbody\n</skill>\n\ndo it',
+  ]);
+  const { editor } = await startEditor('/work/skill');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'first');
+});
+
 test('recalls a prompt sent again only at its newest position with up', async () => {
   writeSession('/work/repeat', ['first', 'second']);
   const { editor } = await startEditor('/work/repeat');
