@@ -269,7 +269,7 @@ export default function (pi: ExtensionAPI) {
       'Set a short name for the current session. Pi shows it in the editor border and the session list.',
     promptSnippet: 'Set a short name for the current session',
     promptGuidelines: [
-      'Call set_session_name with a short name (2\u20135 words) once the task is clear, and again if the task changes substantially.',
+      'Call set_session_name with a short name (2\u20135 words) on the first user prompt, even if it is only a greeting, and again whenever the topic or task changes.',
     ],
     parameters: Type.Object({
       name: Type.String({ description: 'Short session name' }),

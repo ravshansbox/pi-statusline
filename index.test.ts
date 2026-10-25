@@ -219,7 +219,7 @@ test('names the session with the set_session_name tool', async () => {
   const { tools, names } = fakePi();
   const tool = tools.get('set_session_name');
   assert.ok(tool);
-  assert.match(tool.promptGuidelines?.join('\n') ?? '', /set_session_name/);
+  assert.match(tool.promptGuidelines?.join('\n') ?? '', /set_session_name.*first user prompt/);
   await tool.execute('call-1', { name: 'fix login bug' });
   assert.deepEqual(names, ['fix login bug']);
 });
