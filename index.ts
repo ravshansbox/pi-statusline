@@ -79,6 +79,7 @@ function getUsage(ctx: ExtensionContext) {
 
 class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
+  private sessionPrompts: string[] = [];
   onReverseSearch?: () => void;
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
@@ -122,16 +123,22 @@ class HistoryEditor extends CustomEditor {
   setHistory(prompts: string[]): void {
     this.prompts = [];
     for (const prompt of prompts) this.addToHistory(prompt);
+    this.sessionPrompts = [];
   }
 
   getHistory(): string[] {
     return this.prompts;
   }
 
+  getSessionPrompts(): string[] {
+    return this.sessionPrompts;
+  }
+
   override addToHistory(text: string): void {
     const trimmed = text.trim();
     if (isRecallablePrompt(trimmed)) {
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
+      this.sessionPrompts.push(trimmed);
     }
     super.addToHistory(text);
   }
@@ -275,8 +282,7 @@ async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
         ctx.ui.getEditorText(),
         async () => {
           const saved = await loadPromptHistory(ctx.cwd, 'all');
-          const unsaved = editor.getHistory().filter((prompt) => !saved.includes(prompt));
-          return uniqueNewest([...saved, ...unsaved]);
+          return uniqueNewest([...saved, ...editor.getSessionPrompts()]);
         },
         tui,
         theme,

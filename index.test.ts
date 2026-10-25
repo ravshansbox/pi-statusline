@@ -394,3 +394,17 @@ test('orders all-folder reverse search by recency', async () => {
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'newer elsewhere');
 });
+
+test('puts a prompt sent again in this session first in all-folder reverse search', async () => {
+  writeSession('/work/resend-a', ['sent again']);
+  writeSession('/work/resend-b', ['newer elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/resend-a');
+  (editor as Component & { addToHistory(text: string): void }).addToHistory('sent again');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'sent again');
+});
