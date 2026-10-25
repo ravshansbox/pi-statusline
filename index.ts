@@ -288,7 +288,7 @@ async function openReverseSearch(
         editor.getHistory(),
         ctx.ui.getEditorText(),
         async () => {
-          const saved = await loadPromptHistory(ctx.cwd, 'all');
+          const saved = await loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'all');
           return uniqueNewest([...saved, ...sessionPrompts]);
         },
         tui,
@@ -399,7 +399,7 @@ export default function (pi: ExtensionAPI) {
     });
 
     sessionPrompts.length = 0;
-    const prompts = await loadPromptHistory(ctx.cwd, 'current');
+    const prompts = await loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'current');
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);

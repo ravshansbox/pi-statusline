@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { dirname, join, resolve } from 'node:path';
+import { getAgentDir, SessionManager } from '@earendil-works/pi-coding-agent';
 
 export type HistoryScope = 'current' | 'all';
 
@@ -74,10 +75,22 @@ export function uniqueNewest(prompts: string[], limit = Infinity): string[] {
   return newestFirst.reverse();
 }
 
-export async function loadPromptHistory(cwd: string, scope: HistoryScope): Promise<string[]> {
+function listAllSessions(sessionDir: string) {
+  const usesDefault = resolve(dirname(sessionDir)) === resolve(join(getAgentDir(), 'sessions'));
+  return usesDefault ? SessionManager.listAll() : SessionManager.listAll(sessionDir);
+}
+
+export async function loadPromptHistory(
+  cwd: string,
+  sessionDir: string,
+  scope: HistoryScope,
+): Promise<string[]> {
   let sessions: Awaited<ReturnType<typeof SessionManager.list>>;
   try {
-    sessions = scope === 'all' ? await SessionManager.listAll() : await SessionManager.list(cwd);
+    sessions =
+      scope === 'all'
+        ? await listAllSessions(sessionDir)
+        : await SessionManager.list(cwd, sessionDir);
   } catch {
     return [];
   }

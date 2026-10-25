@@ -95,6 +95,7 @@ function render(options: {
     sessionManager: {
       getEntries: () => options.entries ?? [],
       getCwd: () => '/tmp/project',
+      getSessionDir: () => defaultSessionDir('/tmp/project'),
       getSessionName: () => undefined,
     },
     modelRegistry: {
@@ -135,8 +136,16 @@ const keybindings = { matches: () => false };
 const themed = (color: string, text: string) => `\x1b[${color === 'dim' ? 2 : 90}m${text}\x1b[39m`;
 
 let sessionCount = 0;
-function writeSession(cwd: string, prompts: string[], times?: string[]) {
-  const dir = join(agentDir, 'sessions', `--${cwd.replace(/^\//, '').replace(/\//g, '-')}--`);
+function defaultSessionDir(cwd: string) {
+  return join(agentDir, 'sessions', `--${cwd.replace(/^\//, '').replace(/\//g, '-')}--`);
+}
+
+function writeSession(
+  cwd: string,
+  prompts: string[],
+  times?: string[],
+  dir = defaultSessionDir(cwd),
+) {
   mkdirSync(dir, { recursive: true });
   sessionCount++;
   const timestamp = new Date(Date.UTC(2026, 0, 1, 0, sessionCount)).toISOString();
@@ -154,7 +163,7 @@ function writeSession(cwd: string, prompts: string[], times?: string[]) {
   writeFileSync(file, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
 }
 
-async function startEditor(cwd: string, sessionName?: string) {
+async function startEditor(cwd: string, sessionName?: string, sessionDir = defaultSessionDir(cwd)) {
   const { handlers } = fakePi(sessionName);
 
   let editorFactory: ((tui: unknown, theme: unknown, kb: unknown) => Component) | undefined;
@@ -167,7 +176,7 @@ async function startEditor(cwd: string, sessionName?: string) {
     mode: 'tui',
     hasUI: true,
     cwd,
-    sessionManager: { getEntries: () => [], getCwd: () => cwd },
+    sessionManager: { getEntries: () => [], getCwd: () => cwd, getSessionDir: () => sessionDir },
     getContextUsage: () => undefined,
     ui: {
       theme: { fg: themed },
@@ -532,4 +541,33 @@ test('keeps the current-folder selection when all-folder history finishes loadin
   await new Promise((resolve) => setTimeout(resolve, 100));
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'older here');
+});
+
+test('recalls prompts from a custom session folder with up', async () => {
+  const sessionDir = mkdtempSync(join(tmpdir(), 'pi-statusline-sessions-'));
+  writeSession('/work/custom', ['custom prompt'], undefined, sessionDir);
+  writeSession('/work/custom', ['default prompt']);
+  const { editor } = await startEditor('/work/custom', undefined, sessionDir);
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'custom prompt');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'custom prompt');
+});
+
+test('searches all folders in a custom session folder', async () => {
+  const sessionDir = mkdtempSync(join(tmpdir(), 'pi-statusline-sessions-'));
+  writeSession('/work/custom-all-b', ['custom elsewhere'], undefined, sessionDir);
+  writeSession('/work/custom-all-c', ['default elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor(
+    '/work/custom-all-a',
+    undefined,
+    sessionDir,
+  );
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'custom elsewhere');
 });
