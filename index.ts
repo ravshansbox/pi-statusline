@@ -304,6 +304,8 @@ export default function (pi: ExtensionAPI) {
       pi.setSessionName(params.name);
       return { content: [{ type: 'text', text: `Session named: ${params.name}` }], details: {} };
     },
+    renderShell: 'self',
+    renderCall: () => new Container(),
     renderResult: () => new Container(),
   });
 

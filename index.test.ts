@@ -28,6 +28,8 @@ type Tool = {
   name: string;
   promptGuidelines?: string[];
   execute: (id: string, params: { name: string }) => Promise<unknown>;
+  renderShell?: string;
+  renderCall?: (...args: unknown[]) => Component;
   renderResult?: (...args: unknown[]) => Component;
 };
 
@@ -242,12 +244,15 @@ test('names the session with the set_session_name tool', async () => {
   assert.deepEqual(names, ['fix login bug']);
 });
 
-test('hides the set_session_name tool output', () => {
+test('hides the set_session_name tool call and output', () => {
   const { tools } = fakePi();
+  const tool = tools.get('set_session_name');
+  assert.equal(tool?.renderShell, 'self');
+  const call = tool?.renderCall?.({ name: 'fix login bug' }, theme, {});
   const result = { content: [{ type: 'text', text: 'Session named: fix login bug' }] };
-  const component = tools.get('set_session_name')?.renderResult?.(result, {}, theme, {});
-  assert.ok(component);
-  assert.deepEqual(component.render(80), []);
+  const output = tool?.renderResult?.(result, {}, theme, {});
+  assert.deepEqual(call?.render(80), []);
+  assert.deepEqual(output?.render(80), []);
 });
 
 test('shows the session name at the right of the editor border', async () => {
