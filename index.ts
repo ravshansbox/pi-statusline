@@ -8,6 +8,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import {
   type Component,
+  Container,
   fuzzyFilter,
   matchesKey,
   SelectList,
@@ -278,6 +279,7 @@ export default function (pi: ExtensionAPI) {
       pi.setSessionName(params.name);
       return { content: [{ type: 'text', text: `Session named: ${params.name}` }], details: {} };
     },
+    renderResult: () => new Container(),
   });
 
   pi.on('session_start', async (_event, ctx) => {

@@ -24,7 +24,7 @@ It also replaces the editor to add shell-style prompt history:
 - **Ctrl+R** opens reverse search. Type to filter, Up/Down to move, Tab to switch between current-folder and all-folder history, Enter to load the prompt, Esc to cancel. Text already in the editor becomes the initial query.
 - Empty prompts, slash commands and inline bash (`!`) are skipped. Repeated prompts keep only their newest position. Each search scope holds up to 500 prompts.
 
-It also shows the session name at the right of the editor's top border. The name comes from `/name` or from the `set_session_name` tool, which the model is asked to call on the first user prompt and again whenever the topic or task changes. Long names are shortened to fit.
+It also shows the session name at the right of the editor's top border. The name comes from `/name` or from the `set_session_name` tool, which the model is asked to call on the first user prompt and again whenever the topic or task changes. The tool call is shown in the transcript, but its output is hidden. Long names are shortened to fit.
 
 Do not use this with `@ravshansbox/pi-prompt-history`; only one extension can replace the editor.
 

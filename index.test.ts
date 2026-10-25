@@ -28,6 +28,7 @@ type Tool = {
   name: string;
   promptGuidelines?: string[];
   execute: (id: string, params: { name: string }) => Promise<unknown>;
+  renderResult?: (...args: unknown[]) => Component;
 };
 
 function fakePi(sessionName?: string) {
@@ -222,6 +223,14 @@ test('names the session with the set_session_name tool', async () => {
   assert.match(tool.promptGuidelines?.join('\n') ?? '', /set_session_name.*first user prompt/);
   await tool.execute('call-1', { name: 'fix login bug' });
   assert.deepEqual(names, ['fix login bug']);
+});
+
+test('hides the set_session_name tool output', () => {
+  const { tools } = fakePi();
+  const result = { content: [{ type: 'text', text: 'Session named: fix login bug' }] };
+  const component = tools.get('set_session_name')?.renderResult?.(result, {}, theme, {});
+  assert.ok(component);
+  assert.deepEqual(component.render(80), []);
 });
 
 test('shows the session name at the right of the editor border', async () => {
