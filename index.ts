@@ -239,7 +239,10 @@ class ReverseSearch implements Component {
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, 'escape')) {
+    if (data.startsWith('\x1b[200~')) {
+      this.query += data.replace('\x1b[200~', '').replace('\x1b[201~', '').replace(/\s+/g, ' ');
+      this.refresh();
+    } else if (matchesKey(data, 'escape')) {
       this.done(null);
     } else if (matchesKey(data, 'return') || matchesKey(data, 'enter')) {
       this.done(this.list.getSelectedItem()?.value ?? null);

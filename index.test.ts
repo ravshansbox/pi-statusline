@@ -211,6 +211,17 @@ test('loads a prompt chosen in reverse search with ctrl+r', async () => {
   assert.equal(await editorTextSet, 'fix the build');
 });
 
+test('filters reverse search by pasted text', async () => {
+  writeSession('/work/paste', ['deploy app', 'run tests']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/paste');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\x1b[200~deploy\x1b[201~');
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'deploy app');
+});
+
 test('shows the working indicator in the editor border', async () => {
   const { editor } = await startEditor('/work/status');
   const indicator = { renderInBorder: () => 'Working', render: () => [], invalidate: () => {} };
