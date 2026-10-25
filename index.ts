@@ -232,7 +232,7 @@ class ReverseSearch implements Component {
         .then((prompts) => {
           this.prompts.all = prompts;
           this.loadingAll = false;
-          this.refresh();
+          if (this.scope === 'all') this.refresh();
         });
     }
     this.refresh();

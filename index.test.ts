@@ -408,3 +408,18 @@ test('puts a prompt sent again in this session first in all-folder reverse searc
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'sent again');
 });
+
+test('keeps the current-folder selection when all-folder history finishes loading', async () => {
+  writeSession('/work/keep-a', ['older here', 'newer here']);
+  writeSession('/work/keep-b', ['elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/keep-a');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  search.handleInput('\t');
+  search.handleInput('\x1b[B');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'older here');
+});
