@@ -311,7 +311,7 @@ export default function (pi: ExtensionAPI) {
 
     const prompts = await loadPromptHistory(ctx.cwd, 'current');
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-      const editor = new HistoryEditor(tui, theme, keybindings);
+      const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor);
       return editor;

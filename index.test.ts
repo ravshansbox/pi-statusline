@@ -192,6 +192,15 @@ test('loads a prompt chosen in reverse search with ctrl+r', async () => {
   assert.equal(await editorTextSet, 'fix the build');
 });
 
+test('shows the working indicator in the editor border', async () => {
+  const { editor } = await startEditor('/work/status');
+  const indicator = { renderInBorder: () => 'Working', render: () => [], invalidate: () => {} };
+  (
+    editor as unknown as { setWorkingStatusIndicator: (i: unknown) => void }
+  ).setWorkingStatusIndicator(indicator);
+  assert.match(editor.render(80)[0] ?? '', /Working/);
+});
+
 test('shows the directory name, git branch, model and thinking level', () => {
   assert.equal(render({ branch: 'main' })[0], 'project • main • opus:high • 25%/200k');
 });
