@@ -26,7 +26,7 @@ import {
   isRecallablePrompt,
   isSkillBlock,
   loadPromptHistory,
-  uniqueNewest,
+  type TimedPrompt,
 } from './history.ts';
 
 type Usage = {
@@ -279,7 +279,7 @@ class ReverseSearch implements Component {
 async function openReverseSearch(
   ctx: ExtensionContext,
   editor: HistoryEditor,
-  sessionPrompts: string[],
+  sessionPrompts: TimedPrompt[],
 ) {
   const listTheme = getSelectListTheme();
   const result = await ctx.ui.custom<string | null>(
@@ -287,10 +287,7 @@ async function openReverseSearch(
       new ReverseSearch(
         editor.getHistory(),
         ctx.ui.getEditorText(),
-        async () => {
-          const saved = await loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'all');
-          return uniqueNewest([...saved, ...sessionPrompts]);
-        },
+        () => loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'all', sessionPrompts),
         tui,
         theme,
         listTheme,
@@ -301,11 +298,12 @@ async function openReverseSearch(
 }
 
 export default function (pi: ExtensionAPI) {
-  const sessionPrompts: string[] = [];
+  const sessionPrompts: TimedPrompt[] = [];
 
   pi.on('input', (event) => {
     const text = event.text.trim();
-    if (event.source === 'interactive' && isRecallablePrompt(text)) sessionPrompts.push(text);
+    if (event.source === 'interactive' && isRecallablePrompt(text))
+      sessionPrompts.push({ text, time: Date.now() });
   });
 
   pi.registerTool({

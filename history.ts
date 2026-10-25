@@ -35,7 +35,7 @@ export function isSkillBlock(text: string): boolean {
   return text.trim().startsWith('<skill name="');
 }
 
-type TimedPrompt = { text: string; time: number };
+export type TimedPrompt = { text: string; time: number };
 
 async function readPrompts(filePath: string, fallbackTime: number): Promise<TimedPrompt[]> {
   let raw: string;
@@ -84,6 +84,7 @@ export async function loadPromptHistory(
   cwd: string,
   sessionDir: string,
   scope: HistoryScope,
+  extra: TimedPrompt[] = [],
 ): Promise<string[]> {
   let sessions: Awaited<ReturnType<typeof SessionManager.list>>;
   try {
@@ -95,7 +96,7 @@ export async function loadPromptHistory(
     return [];
   }
   const ordered = [...sessions].sort((a, b) => a.modified.getTime() - b.modified.getTime());
-  const timed: TimedPrompt[] = [];
+  const timed: TimedPrompt[] = [...extra];
   for (const session of ordered) {
     timed.push(...(await readPrompts(session.path, session.modified.getTime())));
   }

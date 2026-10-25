@@ -571,3 +571,21 @@ test('searches all folders in a custom session folder', async () => {
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'custom elsewhere');
 });
+
+test('puts a prompt sent later in a parallel session above one sent earlier here in all-folder reverse search', async () => {
+  const { editor, handlers, getSearch, editorTextSet } = await startEditor('/work/later-a');
+  await handlers.get('input')?.({ type: 'input', text: 'sent here', source: 'interactive' }, {});
+  writeSession('/work/later-a', ['sent here'], [new Date().toISOString()]);
+  writeSession(
+    '/work/later-b',
+    ['sent later elsewhere'],
+    [new Date(Date.now() + 60_000).toISOString()],
+  );
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'sent later elsewhere');
+});
