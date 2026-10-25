@@ -135,7 +135,7 @@ const keybindings = { matches: () => false };
 const themed = (color: string, text: string) => `\x1b[${color === 'dim' ? 2 : 90}m${text}\x1b[39m`;
 
 let sessionCount = 0;
-function writeSession(cwd: string, prompts: string[]) {
+function writeSession(cwd: string, prompts: string[], times?: string[]) {
   const dir = join(agentDir, 'sessions', `--${cwd.replace(/^\//, '').replace(/\//g, '-')}--`);
   mkdirSync(dir, { recursive: true });
   sessionCount++;
@@ -146,8 +146,8 @@ function writeSession(cwd: string, prompts: string[]) {
       type: 'message',
       id: `m${i}`,
       parentId: i === 0 ? null : `m${i - 1}`,
-      timestamp,
-      message: { role: 'user', content, timestamp: 0 },
+      timestamp: times?.[i] ?? timestamp,
+      message: { role: 'user', content, timestamp: times ? Date.parse(times[i]!) : 0 },
     })),
   ];
   const file = join(dir, `${sessionCount}.jsonl`);
@@ -501,6 +501,22 @@ test('does not put prompts replayed from a resumed session first in all-folder r
   await new Promise((resolve) => setTimeout(resolve, 100));
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'newer elsewhere');
+});
+
+test('orders prompts from sessions run side by side by when they were sent with up', async () => {
+  writeSession(
+    '/work/parallel',
+    ['first in a', 'third in a'],
+    ['2026-02-01T00:00:00.000Z', '2026-02-03T00:00:00.000Z'],
+  );
+  writeSession('/work/parallel', ['second in b'], ['2026-02-02T00:00:00.000Z']);
+  const { editor } = await startEditor('/work/parallel');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'third in a');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'second in b');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'first in a');
 });
 
 test('keeps the current-folder selection when all-folder history finishes loading', async () => {

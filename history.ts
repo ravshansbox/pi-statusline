@@ -7,6 +7,7 @@ const HISTORY_LIMIT = 500;
 
 type RawEntry = {
   type?: string;
+  timestamp?: string;
   message?: { role?: string; content?: unknown };
 };
 
@@ -33,14 +34,16 @@ export function isSkillBlock(text: string): boolean {
   return text.trim().startsWith('<skill name="');
 }
 
-async function readPrompts(filePath: string): Promise<string[]> {
+type TimedPrompt = { text: string; time: number };
+
+async function readPrompts(filePath: string, fallbackTime: number): Promise<TimedPrompt[]> {
   let raw: string;
   try {
     raw = await readFile(filePath, 'utf-8');
   } catch {
     return [];
   }
-  const prompts: string[] = [];
+  const prompts: TimedPrompt[] = [];
   for (const line of raw.split('\n')) {
     if (!line.trim()) continue;
     let entry: RawEntry;
@@ -51,7 +54,10 @@ async function readPrompts(filePath: string): Promise<string[]> {
     }
     if (entry.type !== 'message' || entry.message?.role !== 'user') continue;
     const text = extractText(entry.message.content);
-    if (isRecallablePrompt(text)) prompts.push(text.trim());
+    const time = Date.parse(entry.timestamp ?? '');
+    if (isRecallablePrompt(text)) {
+      prompts.push({ text: text.trim(), time: Number.isNaN(time) ? fallbackTime : time });
+    }
   }
   return prompts;
 }
@@ -76,7 +82,10 @@ export async function loadPromptHistory(cwd: string, scope: HistoryScope): Promi
     return [];
   }
   const ordered = [...sessions].sort((a, b) => a.modified.getTime() - b.modified.getTime());
-  const all: string[] = [];
-  for (const session of ordered) all.push(...(await readPrompts(session.path)));
+  const timed: TimedPrompt[] = [];
+  for (const session of ordered) {
+    timed.push(...(await readPrompts(session.path, session.modified.getTime())));
+  }
+  const all = timed.sort((a, b) => a.time - b.time).map((prompt) => prompt.text);
   return uniqueNewest(all, HISTORY_LIMIT);
 }
