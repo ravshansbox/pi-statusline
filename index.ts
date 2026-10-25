@@ -231,8 +231,11 @@ async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
       new ReverseSearch(
         editor.getHistory(),
         ctx.ui.getEditorText(),
-        async () =>
-          uniqueNewest([...(await loadPromptHistory(ctx.cwd, 'all')), ...editor.getHistory()]),
+        async () => {
+          const saved = await loadPromptHistory(ctx.cwd, 'all');
+          const unsaved = editor.getHistory().filter((prompt) => !saved.includes(prompt));
+          return uniqueNewest([...saved, ...unsaved]);
+        },
         tui,
         theme,
         listTheme,

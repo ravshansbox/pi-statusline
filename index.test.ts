@@ -248,3 +248,16 @@ test('keeps stats dim after a highlighted context usage', () => {
   assert.equal(colours[plain.indexOf('95%')], 'error');
   assert.equal(colours[plain.indexOf('↑8')], 'dim');
 });
+
+test('orders all-folder reverse search by recency', async () => {
+  writeSession('/work/order-a', ['older here']);
+  writeSession('/work/order-b', ['newer elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/order-a');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'newer elsewhere');
+});
