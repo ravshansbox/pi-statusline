@@ -225,12 +225,12 @@ test('shows token usage and context', () => {
   assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R26k W6k CH80%');
 });
 
-test('shows extension statuses sorted by key', () => {
+test('shows extension statuses sorted by key at the end of the line', () => {
   const statuses = new Map([
     ['b', 'second'],
     ['a', 'first\nline'],
   ]);
-  assert.equal(render({ statuses })[1], 'first line second');
+  assert.deepEqual(render({ statuses }), ['project • opus:high • 25%/200k • first line • second']);
 });
 
 test('keeps stats dim after a highlighted context usage', () => {

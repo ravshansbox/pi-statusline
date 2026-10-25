@@ -293,18 +293,13 @@ export default function (pi: ExtensionAPI) {
             topParts.push(theme.bold(theme.fg('warning', 'xp')));
           }
 
-          const lines = [truncateToWidth(topParts.join(dim(' • ')), width, dim('...'))];
-
-          const statuses = footerData.getExtensionStatuses();
-          if (statuses.size > 0) {
-            const line = Array.from(statuses.entries())
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([, text]) => sanitizeStatusText(text))
-              .join(' ');
-            lines.push(truncateToWidth(line, width, theme.fg('dim', '...')));
+          for (const [, text] of Array.from(footerData.getExtensionStatuses().entries()).sort(
+            ([a], [b]) => a.localeCompare(b),
+          )) {
+            topParts.push(sanitizeStatusText(text));
           }
 
-          return lines;
+          return [truncateToWidth(topParts.join(dim(' • ')), width, dim('...'))];
         },
       };
     });
