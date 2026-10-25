@@ -185,7 +185,7 @@ async function startEditor(cwd: string, sessionName?: string) {
   await handlers.get('session_start')?.({ type: 'session_start' }, ctx);
   assert.ok(editorFactory);
   const editor = editorFactory(tui, editorTheme, keybindings);
-  return { editor, getSearch: () => search, editorTextSet };
+  return { editor, handlers, getSearch: () => search, editorTextSet };
 }
 
 test('recalls prompts from earlier sessions in the same folder with up', async () => {
@@ -444,7 +444,8 @@ test('orders all-folder reverse search by recency', async () => {
 test('puts a prompt sent again in this session first in all-folder reverse search', async () => {
   writeSession('/work/resend-a', ['sent again']);
   writeSession('/work/resend-b', ['newer elsewhere']);
-  const { editor, getSearch, editorTextSet } = await startEditor('/work/resend-a');
+  const { editor, handlers, getSearch, editorTextSet } = await startEditor('/work/resend-a');
+  await handlers.get('input')?.({ type: 'input', text: 'sent again', source: 'interactive' }, {});
   (editor as Component & { addToHistory(text: string): void }).addToHistory('sent again');
   editor.handleInput('\x12');
   const search = getSearch();
@@ -453,6 +454,20 @@ test('puts a prompt sent again in this session first in all-folder reverse searc
   await new Promise((resolve) => setTimeout(resolve, 100));
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'sent again');
+});
+
+test('does not put prompts replayed from a resumed session first in all-folder reverse search', async () => {
+  writeSession('/work/replay-a', ['resumed prompt']);
+  writeSession('/work/replay-b', ['newer elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/replay-a');
+  (editor as Component & { addToHistory(text: string): void }).addToHistory('resumed prompt');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, 'newer elsewhere');
 });
 
 test('keeps the current-folder selection when all-folder history finishes loading', async () => {

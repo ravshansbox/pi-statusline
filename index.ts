@@ -80,7 +80,6 @@ function getUsage(ctx: ExtensionContext) {
 
 class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
-  private sessionPrompts: string[] = [];
   onReverseSearch?: () => void;
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
@@ -124,22 +123,16 @@ class HistoryEditor extends CustomEditor {
   setHistory(prompts: string[]): void {
     this.prompts = [];
     for (const prompt of prompts) this.addToHistory(prompt);
-    this.sessionPrompts = [];
   }
 
   getHistory(): string[] {
     return this.prompts;
   }
 
-  getSessionPrompts(): string[] {
-    return this.sessionPrompts;
-  }
-
   override addToHistory(text: string): void {
     const trimmed = text.trim();
     if (isRecallablePrompt(trimmed)) {
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
-      this.sessionPrompts.push(trimmed);
     }
     super.addToHistory(text);
   }
@@ -279,7 +272,11 @@ class ReverseSearch implements Component {
   }
 }
 
-async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
+async function openReverseSearch(
+  ctx: ExtensionContext,
+  editor: HistoryEditor,
+  sessionPrompts: string[],
+) {
   const listTheme = getSelectListTheme();
   const result = await ctx.ui.custom<string | null>(
     (tui, theme, _kb, done) =>
@@ -288,7 +285,7 @@ async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
         ctx.ui.getEditorText(),
         async () => {
           const saved = await loadPromptHistory(ctx.cwd, 'all');
-          return uniqueNewest([...saved, ...editor.getSessionPrompts()]);
+          return uniqueNewest([...saved, ...sessionPrompts]);
         },
         tui,
         theme,
@@ -300,6 +297,13 @@ async function openReverseSearch(ctx: ExtensionContext, editor: HistoryEditor) {
 }
 
 export default function (pi: ExtensionAPI) {
+  const sessionPrompts: string[] = [];
+
+  pi.on('input', (event) => {
+    const text = event.text.trim();
+    if (event.source === 'interactive' && isRecallablePrompt(text)) sessionPrompts.push(text);
+  });
+
   pi.registerTool({
     name: 'set_session_name',
     label: 'Set session name',
@@ -390,13 +394,14 @@ export default function (pi: ExtensionAPI) {
       };
     });
 
+    sessionPrompts.length = 0;
     const prompts = await loadPromptHistory(ctx.cwd, 'current');
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);
       editor.getSessionName = () => pi.getSessionName();
       editor.dimColor = (text) => ctx.ui.theme.fg('dim', text);
-      editor.onReverseSearch = () => void openReverseSearch(ctx, editor);
+      editor.onReverseSearch = () => void openReverseSearch(ctx, editor, sessionPrompts);
       return editor;
     });
   });
