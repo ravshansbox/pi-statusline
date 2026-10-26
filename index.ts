@@ -89,9 +89,15 @@ class HistoryEditor extends CustomEditor {
   override setWorkingStatusIndicator(
     indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0],
   ): void {
-    if (!indicator) return super.setWorkingStatusIndicator(indicator);
     const dim = (text: string) =>
       this.dimColor ? this.dimColor(stripTerminalSequences(text)) : text;
+    if (!indicator) {
+      const ready = {
+        renderInBorder: () => dim('Ready'),
+        renderSpinnerInBorder: () => '',
+      } as unknown as NonNullable<typeof indicator>;
+      return super.setWorkingStatusIndicator(ready);
+    }
     const dimmed = Object.create(indicator) as typeof indicator;
     dimmed.renderInBorder = (width) => dim(indicator.renderInBorder(width));
     dimmed.renderSpinnerInBorder = (width) => dim(indicator.renderSpinnerInBorder(width));
@@ -410,6 +416,7 @@ export default function (pi: ExtensionAPI) {
       editor.setHistory(prompts);
       editor.getSessionName = () => pi.getSessionName();
       editor.dimColor = (text) => ctx.ui.theme.fg('dim', text);
+      editor.setWorkingStatusIndicator(undefined);
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor, sessionPrompts);
       return editor;
     });

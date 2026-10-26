@@ -336,6 +336,23 @@ test('dims the working indicator in the editor border', async () => {
   assert.ok(editor.render(3)[0]?.includes(themed('dim', '\u280b')));
 });
 
+test('shows Ready in the editor border when idle', async () => {
+  const { editor } = await startEditor('/work/status-ready');
+  assert.ok(editor.render(40)[0]?.includes(themed('dim', 'Ready')));
+});
+
+test('shows Ready again when the working indicator clears', async () => {
+  const { editor } = await startEditor('/work/status-ready-again');
+  const setIndicator = (
+    editor as unknown as { setWorkingStatusIndicator: (i: unknown) => void }
+  ).setWorkingStatusIndicator.bind(editor);
+  setIndicator({ renderInBorder: () => 'Working', render: () => [], invalidate: () => {} });
+  setIndicator(undefined);
+  const top = editor.render(40)[0] ?? '';
+  assert.match(top, /Ready/);
+  assert.doesNotMatch(top, /Working/);
+});
+
 async function startSession(mode: string) {
   const { handlers, tools, names } = fakePi();
   const cwd = '/work/session-tools';
@@ -390,7 +407,8 @@ test('draws the editor border in the dim theme colour', async () => {
   (editor as unknown as { borderColor: (t: string) => string }).borderColor = (t) =>
     `<thinkingMedium>${t}</thinkingMedium>`;
   const lines = editor.render(20);
-  assert.equal(lines[0], themed('dim', '─'.repeat(20)));
+  assert.equal(stripTerminalSequences(lines[0] ?? ''), `── Ready ${'─'.repeat(11)}`);
+  assert.ok(lines[0]?.startsWith(themed('dim', '── ')));
   assert.equal(lines.at(-1), themed('dim', '─'.repeat(20)));
 });
 
@@ -399,7 +417,9 @@ test('keeps the bash mode editor border colour', async () => {
   for (const key of '!ls') editor.handleInput(key);
   (editor as unknown as { borderColor: (t: string) => string }).borderColor = (t) =>
     `<bashMode>${t}</bashMode>`;
-  assert.equal(editor.render(20)[0], `<bashMode>${'─'.repeat(20)}</bashMode>`);
+  const top = editor.render(20)[0] ?? '';
+  assert.ok(top.startsWith('<bashMode>── </bashMode>'), top);
+  assert.ok(top.endsWith(`<bashMode> ${'─'.repeat(11)}</bashMode>`), top);
 });
 
 test('shows the session name next to the working indicator', async () => {
@@ -415,10 +435,10 @@ test('shows the session name next to the working indicator', async () => {
 
 test('shortens the session name when the border is narrow', async () => {
   const { editor } = await startEditor('/work/name-narrow', 'a very long session name');
-  const top = editor.render(14)[0] ?? '';
+  const top = editor.render(24)[0] ?? '';
   assert.match(top, /a very.*…/);
   assert.ok(stripTerminalSequences(top).endsWith(' ──'), top);
-  assert.equal(visibleWidth(top), 14);
+  assert.equal(visibleWidth(top), 24);
 });
 
 test('shows the directory name, git branch, model and thinking level', () => {
