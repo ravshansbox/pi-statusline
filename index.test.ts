@@ -67,12 +67,14 @@ function usage(input: number, output: number, cacheRead = 0, cacheWrite = 0) {
 
 function render(options: {
   entries?: unknown[];
+  leafId?: () => string | null;
   branch?: string | null;
   statuses?: Map<string, string>;
   width?: number;
   thinkingLevel?: string;
   percent?: number;
   theme?: typeof theme;
+  onRendered?: (rerender: () => string[]) => void;
 }): string[] {
   const { handlers } = fakePi();
 
@@ -96,6 +98,7 @@ function render(options: {
     },
     sessionManager: {
       getEntries: () => options.entries ?? [],
+      getLeafId: options.leafId ?? (() => null),
       getCwd: () => '/tmp/project',
       getSessionDir: () => defaultSessionDir('/tmp/project'),
       getSessionName: () => undefined,
@@ -118,9 +121,10 @@ function render(options: {
     getExtensionStatuses: () => options.statuses ?? new Map(),
     onBranchChange: () => () => {},
   };
-  return factory({ requestRender: () => {} }, options.theme ?? theme, footerData).render(
-    options.width ?? 80,
-  );
+  const footer = factory({ requestRender: () => {} }, options.theme ?? theme, footerData);
+  const lines = footer.render(options.width ?? 80);
+  options.onRendered?.(() => footer.render(options.width ?? 80));
+  return lines;
 }
 
 const tui = { terminal: { rows: 40, columns: 80 }, requestRender: () => {} };
@@ -543,6 +547,33 @@ test('hides cache hit rate when it rounds to 80% or above', () => {
     ],
   })[0];
   assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R8k W2k');
+});
+
+test('updates token usage only when the session changes', () => {
+  const entries: unknown[] = [
+    { type: 'message', message: { role: 'assistant', usage: usage(8, 0) } },
+  ];
+  let leaf = 'a';
+  let reads = 0;
+  let rerender: () => string[] = () => [];
+  render({
+    entries: new Proxy(entries, {
+      get(target, key, receiver) {
+        if (key === Symbol.iterator) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    }),
+    leafId: () => leaf,
+    onRendered: (r) => {
+      rerender = r;
+    },
+  });
+  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • ↑8');
+  assert.equal(reads, 1);
+  entries.push({ type: 'message', message: { role: 'assistant', usage: usage(2, 0) } });
+  leaf = 'b';
+  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • ↑10');
+  assert.equal(reads, 2);
 });
 
 test('shows extension statuses sorted by key at the end of the line', () => {

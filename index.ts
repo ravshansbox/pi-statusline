@@ -347,12 +347,15 @@ export default function (pi: ExtensionAPI) {
 
     ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());
+      let cached: { leafId: string | null; usage: ReturnType<typeof getUsage> } | undefined;
       return {
         dispose: unsub,
         invalidate() {},
         render(width: number): string[] {
           const model = ctx.model;
-          const { totals, latestCacheHitRate } = getUsage(ctx);
+          const leafId = ctx.sessionManager.getLeafId();
+          if (cached?.leafId !== leafId) cached = { leafId, usage: getUsage(ctx) };
+          const { totals, latestCacheHitRate } = cached.usage;
           const contextUsage = ctx.getContextUsage();
           const contextWindow = contextUsage?.contextWindow ?? model?.contextWindow ?? 0;
           const contextPercentValue = contextUsage?.percent ?? 0;
