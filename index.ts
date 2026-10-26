@@ -83,6 +83,7 @@ class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
   private submitting = false;
   onReverseSearch?: () => void;
+  onPromptSent?: (text: string) => void;
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
 
@@ -142,6 +143,7 @@ class HistoryEditor extends CustomEditor {
     if (isSkillBlock(trimmed)) return;
     if (isRecallablePrompt(trimmed)) {
       if (!this.submitting && this.prompts.includes(trimmed)) return;
+      if (this.submitting) this.onPromptSent?.(trimmed);
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
       const base = this as unknown as { history: string[] };
       base.history = base.history.filter((prompt) => prompt !== trimmed);
@@ -314,12 +316,6 @@ export default function (pi: ExtensionAPI) {
   const sessionPrompts: TimedPrompt[] = [];
   let toolRegistered = false;
 
-  pi.on('input', (event) => {
-    const text = event.text.trim();
-    if (event.source === 'interactive' && isRecallablePrompt(text))
-      sessionPrompts.push({ text, time: Date.now() });
-  });
-
   pi.on('session_start', async (_event, ctx) => {
     if (ctx.mode !== 'tui') return;
     if (!toolRegistered) {
@@ -424,6 +420,7 @@ export default function (pi: ExtensionAPI) {
       editor.getSessionName = () => pi.getSessionName();
       editor.dimColor = (text) => ctx.ui.theme.fg('dim', text);
       editor.setWorkingStatusIndicator(undefined);
+      editor.onPromptSent = (text) => sessionPrompts.push({ text, time: Date.now() });
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor, sessionPrompts);
       return editor;
     });

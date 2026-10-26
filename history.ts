@@ -9,7 +9,7 @@ const HISTORY_LIMIT = 500;
 type RawEntry = {
   type?: string;
   timestamp?: string;
-  message?: { role?: string; content?: unknown };
+  message?: { role?: string; content?: unknown; command?: unknown; excludeFromContext?: unknown };
 };
 
 function extractText(content: unknown): string {
@@ -23,12 +23,15 @@ function extractText(content: unknown): string {
 
 export function isRecallablePrompt(text: string): boolean {
   const trimmed = text.trim();
-  return (
-    trimmed.length > 0 &&
-    !trimmed.startsWith('/') &&
-    !trimmed.startsWith('!') &&
-    !isSkillBlock(trimmed)
-  );
+  return trimmed.length > 0 && !isSkillBlock(trimmed);
+}
+
+function promptText(message: NonNullable<RawEntry['message']>): string {
+  if (message.role === 'user') return extractText(message.content);
+  if (message.role === 'bashExecution' && typeof message.command === 'string') {
+    return `${message.excludeFromContext === true ? '!!' : '!'}${message.command}`;
+  }
+  return '';
 }
 
 export function isSkillBlock(text: string): boolean {
@@ -53,8 +56,8 @@ async function readPrompts(filePath: string, fallbackTime: number): Promise<Time
     } catch {
       continue;
     }
-    if (entry.type !== 'message' || entry.message?.role !== 'user') continue;
-    const text = extractText(entry.message.content);
+    if (entry.type !== 'message' || !entry.message) continue;
+    const text = promptText(entry.message);
     const time = Date.parse(entry.timestamp ?? '');
     if (isRecallablePrompt(text)) {
       prompts.push({ text: text.trim(), time: Number.isNaN(time) ? fallbackTime : time });

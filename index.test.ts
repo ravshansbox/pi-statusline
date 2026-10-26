@@ -142,9 +142,11 @@ function defaultSessionDir(cwd: string) {
   return join(agentDir, 'sessions', `--${cwd.replace(/^\//, '').replace(/\//g, '-')}--`);
 }
 
+type Prompt = string | { bash: string; exclude?: boolean };
+
 function writeSession(
   cwd: string,
-  prompts: string[],
+  prompts: Prompt[],
   times?: string[],
   dir = defaultSessionDir(cwd),
 ) {
@@ -158,7 +160,19 @@ function writeSession(
       id: `m${i}`,
       parentId: i === 0 ? null : `m${i - 1}`,
       timestamp: times?.[i] ?? timestamp,
-      message: { role: 'user', content, timestamp: times ? Date.parse(times[i]!) : 0 },
+      message:
+        typeof content === 'string'
+          ? { role: 'user', content, timestamp: times ? Date.parse(times[i]!) : 0 }
+          : {
+              role: 'bashExecution',
+              command: content.bash,
+              output: '',
+              exitCode: 0,
+              cancelled: false,
+              truncated: false,
+              excludeFromContext: content.exclude,
+              timestamp: 0,
+            },
     })),
   ];
   const file = join(dir, `${sessionCount}.jsonl`);
@@ -197,11 +211,18 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
   await handlers.get('session_start')?.({ type: 'session_start' }, ctx);
   assert.ok(editorFactory);
   const editor = editorFactory(tui, editorTheme, keybindings);
+  (editor as Component & { onSubmit?: (text: string) => void }).onSubmit = (text) =>
+    editor.addToHistory?.(text);
   return { editor, handlers, getSearch: () => search, editorTextSet };
 }
 
+function send(editor: Component, text: string) {
+  for (const key of text) editor.handleInput(key);
+  editor.handleInput('\r');
+}
+
 test('recalls prompts from earlier sessions in the same folder with up', async () => {
-  writeSession('/work/recall', ['first', '/model', '!ls', 'second']);
+  writeSession('/work/recall', ['first', 'second']);
   writeSession('/work/other', ['elsewhere']);
   const { editor } = await startEditor('/work/recall');
   editor.handleInput('\x1b[A');
@@ -210,6 +231,46 @@ test('recalls prompts from earlier sessions in the same folder with up', async (
   assert.equal(editor.getText(), 'first');
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'first');
+});
+
+test('recalls slash commands and bash commands from earlier sessions with up', async () => {
+  writeSession('/work/commands', [
+    '/review the diff',
+    { bash: 'ls' },
+    { bash: 'git status', exclude: true },
+  ]);
+  const { editor } = await startEditor('/work/commands');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), '!!git status');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), '!ls');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), '/review the diff');
+});
+
+test('finds slash commands and bash commands sent in this session in reverse search', async () => {
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/commands-here');
+  send(editor, '/deploy now');
+  send(editor, '!ls');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  for (const key of 'deploy') search.handleInput(key);
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, '/deploy now');
+});
+
+test('finds slash commands sent in this session in all-folder reverse search', async () => {
+  writeSession('/work/commands-all-b', ['elsewhere']);
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/commands-all-a');
+  send(editor, '/deploy now');
+  editor.handleInput('\x12');
+  const search = getSearch();
+  assert.ok(search);
+  search.handleInput('\t');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  search.handleInput('\r');
+  assert.equal(await editorTextSet, '/deploy now');
 });
 
 test('skips expanded skill commands from earlier sessions in up history', async () => {
@@ -235,9 +296,7 @@ test('skips expanded skill commands replayed from a resumed session in up histor
 test('recalls a prompt sent again only at its newest position with up', async () => {
   writeSession('/work/repeat', ['first', 'second']);
   const { editor } = await startEditor('/work/repeat');
-  (editor as Component & { onSubmit?: (text: string) => void }).onSubmit = (text) =>
-    editor.addToHistory?.(text);
-  for (const key of 'first\r') editor.handleInput(key);
+  send(editor, 'first');
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'first');
   editor.handleInput('\x1b[A');
@@ -550,9 +609,8 @@ test('orders all-folder reverse search by recency', async () => {
 test('puts a prompt sent again in this session first in all-folder reverse search', async () => {
   writeSession('/work/resend-a', ['sent again']);
   writeSession('/work/resend-b', ['newer elsewhere']);
-  const { editor, handlers, getSearch, editorTextSet } = await startEditor('/work/resend-a');
-  await handlers.get('input')?.({ type: 'input', text: 'sent again', source: 'interactive' }, {});
-  (editor as Component & { addToHistory(text: string): void }).addToHistory('sent again');
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/resend-a');
+  send(editor, 'sent again');
   editor.handleInput('\x12');
   const search = getSearch();
   assert.ok(search);
@@ -637,8 +695,8 @@ test('searches all folders in a custom session folder', async () => {
 });
 
 test('puts a prompt sent later in a parallel session above one sent earlier here in all-folder reverse search', async () => {
-  const { editor, handlers, getSearch, editorTextSet } = await startEditor('/work/later-a');
-  await handlers.get('input')?.({ type: 'input', text: 'sent here', source: 'interactive' }, {});
+  const { editor, getSearch, editorTextSet } = await startEditor('/work/later-a');
+  send(editor, 'sent here');
   writeSession('/work/later-a', ['sent here'], [new Date().toISOString()]);
   writeSession(
     '/work/later-b',
