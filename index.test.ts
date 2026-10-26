@@ -37,6 +37,7 @@ type Tool = {
 function fakePi(sessionName?: string) {
   const handlers = new Map<string, Handler>();
   const tools = new Map<string, Tool>();
+  const registered: string[] = [];
   const names: string[] = [];
   const pi = {
     on: (event: string, h: Handler) => {
@@ -44,6 +45,7 @@ function fakePi(sessionName?: string) {
     },
     registerTool: (tool: Tool) => {
       tools.set(tool.name, tool);
+      registered.push(tool.name);
     },
     setSessionName: (name: string) => {
       names.push(name);
@@ -51,7 +53,7 @@ function fakePi(sessionName?: string) {
     getSessionName: () => sessionName,
   } as unknown as ExtensionAPI;
   extension(pi);
-  return { handlers, tools, names };
+  return { handlers, tools, registered, names };
 }
 
 const theme = {
@@ -353,20 +355,27 @@ test('shows Ready again when the working indicator clears', async () => {
   assert.doesNotMatch(top, /Working/);
 });
 
-async function startSession(mode: string) {
-  const { handlers, tools, names } = fakePi();
+async function startSession(mode: string, starts = 1) {
+  const { handlers, tools, registered, names } = fakePi();
   const cwd = '/work/session-tools';
-  await handlers.get('session_start')?.(
-    { type: 'session_start' },
-    {
-      mode,
-      cwd,
-      sessionManager: { getCwd: () => cwd, getSessionDir: () => defaultSessionDir(cwd) },
-      ui: { setFooter: () => {}, setEditorComponent: () => {} },
-    },
-  );
-  return { tools, names };
+  for (let i = 0; i < starts; i++) {
+    await handlers.get('session_start')?.(
+      { type: 'session_start' },
+      {
+        mode,
+        cwd,
+        sessionManager: { getCwd: () => cwd, getSessionDir: () => defaultSessionDir(cwd) },
+        ui: { setFooter: () => {}, setEditorComponent: () => {} },
+      },
+    );
+  }
+  return { tools, registered, names };
 }
+
+test('offers the set_session_name tool once across new sessions', async () => {
+  const { registered } = await startSession('tui', 3);
+  assert.deepEqual(registered, ['set_session_name']);
+});
 
 test('does not offer the set_session_name tool outside the TUI', async () => {
   for (const mode of ['print', 'json', 'rpc']) {
