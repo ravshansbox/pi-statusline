@@ -313,29 +313,29 @@ export default function (pi: ExtensionAPI) {
       sessionPrompts.push({ text, time: Date.now() });
   });
 
-  pi.registerTool({
-    name: 'set_session_name',
-    label: 'Set session name',
-    description:
-      'Set a short name for the current session. Pi shows it in the editor border and the session list.',
-    promptSnippet: 'Set a short name for the current session',
-    promptGuidelines: [
-      'Call set_session_name with a short name (2\u20135 words) on the first user prompt, even if it is only a greeting, and again whenever the topic or task changes.',
-    ],
-    parameters: Type.Object({
-      name: Type.String({ description: 'Short session name' }),
-    }),
-    async execute(_toolCallId, params) {
-      pi.setSessionName(params.name);
-      return { content: [{ type: 'text', text: `Session named: ${params.name}` }], details: {} };
-    },
-    renderShell: 'self',
-    renderCall: () => new Container(),
-    renderResult: () => new Container(),
-  });
-
   pi.on('session_start', async (_event, ctx) => {
     if (ctx.mode !== 'tui') return;
+    pi.registerTool({
+      name: 'set_session_name',
+      label: 'Set session name',
+      description:
+        'Set a short name for the current session. Pi shows it in the editor border and the session list.',
+      promptSnippet: 'Set a short name for the current session',
+      promptGuidelines: [
+        'Call set_session_name with a short name (2\u20135 words) on the first user prompt, even if it is only a greeting, and again whenever the topic or task changes.',
+      ],
+      parameters: Type.Object({
+        name: Type.String({ description: 'Short session name' }),
+      }),
+      async execute(_toolCallId, params) {
+        pi.setSessionName(params.name);
+        return { content: [{ type: 'text', text: `Session named: ${params.name}` }], details: {} };
+      },
+      renderShell: 'self',
+      renderCall: () => new Container(),
+      renderResult: () => new Container(),
+    });
+
     ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());
       return {

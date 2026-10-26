@@ -336,8 +336,30 @@ test('dims the working indicator in the editor border', async () => {
   assert.ok(editor.render(3)[0]?.includes(themed('dim', '\u280b')));
 });
 
+async function startSession(mode: string) {
+  const { handlers, tools, names } = fakePi();
+  const cwd = '/work/session-tools';
+  await handlers.get('session_start')?.(
+    { type: 'session_start' },
+    {
+      mode,
+      cwd,
+      sessionManager: { getCwd: () => cwd, getSessionDir: () => defaultSessionDir(cwd) },
+      ui: { setFooter: () => {}, setEditorComponent: () => {} },
+    },
+  );
+  return { tools, names };
+}
+
+test('does not offer the set_session_name tool outside the TUI', async () => {
+  for (const mode of ['print', 'json', 'rpc']) {
+    const { tools } = await startSession(mode);
+    assert.equal(tools.has('set_session_name'), false, mode);
+  }
+});
+
 test('names the session with the set_session_name tool', async () => {
-  const { tools, names } = fakePi();
+  const { tools, names } = await startSession('tui');
   const tool = tools.get('set_session_name');
   assert.ok(tool);
   assert.match(tool.promptGuidelines?.join('\n') ?? '', /set_session_name.*first user prompt/);
@@ -345,8 +367,8 @@ test('names the session with the set_session_name tool', async () => {
   assert.deepEqual(names, ['fix login bug']);
 });
 
-test('hides the set_session_name tool call and output', () => {
-  const { tools } = fakePi();
+test('hides the set_session_name tool call and output', async () => {
+  const { tools } = await startSession('tui');
   const tool = tools.get('set_session_name');
   assert.equal(tool?.renderShell, 'self');
   const call = tool?.renderCall?.({ name: 'fix login bug' }, theme, {});
