@@ -81,6 +81,7 @@ function getUsage(ctx: ExtensionContext) {
 
 class HistoryEditor extends CustomEditor {
   private prompts: string[] = [];
+  private submitting = false;
   onReverseSearch?: () => void;
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
@@ -134,6 +135,7 @@ class HistoryEditor extends CustomEditor {
     const trimmed = text.trim();
     if (isSkillBlock(trimmed)) return;
     if (isRecallablePrompt(trimmed)) {
+      if (!this.submitting && this.prompts.includes(trimmed)) return;
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
       const base = this as unknown as { history: string[] };
       base.history = base.history.filter((prompt) => prompt !== trimmed);
@@ -146,7 +148,12 @@ class HistoryEditor extends CustomEditor {
       this.onReverseSearch?.();
       return;
     }
-    super.handleInput(data);
+    this.submitting = true;
+    try {
+      super.handleInput(data);
+    } finally {
+      this.submitting = false;
+    }
   }
 }
 

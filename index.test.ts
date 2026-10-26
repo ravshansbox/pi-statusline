@@ -233,13 +233,26 @@ test('skips expanded skill commands replayed from a resumed session in up histor
 test('recalls a prompt sent again only at its newest position with up', async () => {
   writeSession('/work/repeat', ['first', 'second']);
   const { editor } = await startEditor('/work/repeat');
-  editor.addToHistory?.('first');
+  (editor as Component & { onSubmit?: (text: string) => void }).onSubmit = (text) =>
+    editor.addToHistory?.(text);
+  for (const key of 'first\r') editor.handleInput(key);
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'first');
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'second');
   editor.handleInput('\x1b[A');
   assert.equal(editor.getText(), 'second');
+});
+
+test('keeps prompts replayed from a resumed session in place in up history', async () => {
+  writeSession('/work/replay-up', ['resumed prompt']);
+  writeSession('/work/replay-up', ['newer prompt']);
+  const { editor } = await startEditor('/work/replay-up');
+  editor.addToHistory?.('resumed prompt');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'newer prompt');
+  editor.handleInput('\x1b[A');
+  assert.equal(editor.getText(), 'resumed prompt');
 });
 
 test('loads a prompt chosen in reverse search with ctrl+r', async () => {
