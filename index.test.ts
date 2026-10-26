@@ -87,7 +87,6 @@ function render(options: {
   };
   const ctx = {
     mode: 'tui',
-    cwd: '/tmp',
     model,
     thinkingLevel: options.thinkingLevel ?? 'high',
     ui: {
@@ -195,7 +194,6 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
   const ctx = {
     mode: 'tui',
     hasUI: true,
-    cwd,
     sessionManager: { getEntries: () => [], getCwd: () => cwd, getSessionDir: () => sessionDir },
     getContextUsage: () => undefined,
     ui: {
@@ -426,7 +424,6 @@ async function startSession(mode: string, starts = 1) {
       { type: 'session_start' },
       {
         mode,
-        cwd,
         sessionManager: { getCwd: () => cwd, getSessionDir: () => defaultSessionDir(cwd) },
         ui: { setFooter: () => {}, setEditorComponent: () => {} },
       },

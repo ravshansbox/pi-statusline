@@ -302,7 +302,13 @@ async function openReverseSearch(
       new ReverseSearch(
         editor.getHistory(),
         ctx.ui.getEditorText(),
-        () => loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'all', sessionPrompts),
+        () =>
+          loadPromptHistory(
+            ctx.sessionManager.getCwd(),
+            ctx.sessionManager.getSessionDir(),
+            'all',
+            sessionPrompts,
+          ),
         tui,
         theme,
         listTheme,
@@ -416,7 +422,11 @@ export default function (pi: ExtensionAPI) {
     });
 
     sessionPrompts.length = 0;
-    const prompts = await loadPromptHistory(ctx.cwd, ctx.sessionManager.getSessionDir(), 'current');
+    const prompts = await loadPromptHistory(
+      ctx.sessionManager.getCwd(),
+      ctx.sessionManager.getSessionDir(),
+      'current',
+    );
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       const editor = new HistoryEditor(tui, theme, keybindings, { embedWorkingStatus: true });
       editor.setHistory(prompts);
