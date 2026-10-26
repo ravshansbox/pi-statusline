@@ -218,6 +218,12 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
   return { editor, handlers, getSearch: () => search, editorTextSet };
 }
 
+async function allFoldersLoaded(search: Component) {
+  while (search.render(80).some((line) => line.includes('loading…'))) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 function send(editor: Component, text: string) {
   for (const key of text) editor.handleInput(key);
   editor.handleInput('\r');
@@ -270,7 +276,7 @@ test('finds slash commands sent in this session in all-folder reverse search', a
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, '/deploy now');
 });
@@ -629,7 +635,7 @@ test('orders all-folder reverse search by recency', async () => {
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'newer elsewhere');
 });
@@ -643,7 +649,7 @@ test('puts a prompt sent again in this session first in all-folder reverse searc
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'sent again');
 });
@@ -657,7 +663,7 @@ test('does not put prompts replayed from a resumed session first in all-folder r
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'newer elsewhere');
 });
@@ -717,7 +723,7 @@ test('searches all folders in a custom session folder', async () => {
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'custom elsewhere');
 });
@@ -735,7 +741,7 @@ test('puts a prompt sent later in a parallel session above one sent earlier here
   const search = getSearch();
   assert.ok(search);
   search.handleInput('\t');
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'sent later elsewhere');
 });
