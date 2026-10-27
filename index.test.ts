@@ -614,7 +614,7 @@ test('moves extension statuses to a second line when the line does not fit', () 
   ]);
 });
 
-test('keeps stats dim after a highlighted context usage', () => {
+test('shows high context usage in dim', () => {
   const tagTheme = {
     fg: (color: string, text: string) => `<${color}>${text}</>`,
     bold: (text: string) => text,
@@ -635,7 +635,7 @@ test('keeps stats dim after a highlighted context usage', () => {
   }
   const plain = line.replace(/<\w+>|<\/>/g, '');
   assert.equal(plain, 'project • opus:high • 95%/200k • ↑8');
-  assert.equal(colours[plain.indexOf('95%')], 'error');
+  assert.equal(colours[plain.indexOf('95%')], 'dim');
   assert.equal(colours[plain.indexOf('↑8')], 'dim');
 });
 

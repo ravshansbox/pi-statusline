@@ -365,9 +365,7 @@ export default function (pi: ExtensionAPI) {
           const { totals, latestCacheHitRate } = cached.usage;
           const contextUsage = ctx.getContextUsage();
           const contextWindow = contextUsage?.contextWindow ?? model?.contextWindow ?? 0;
-          const contextPercentValue = contextUsage?.percent ?? 0;
-          const contextPercent =
-            contextUsage?.percent != null ? contextPercentValue.toFixed(0) : '?';
+          const contextPercent = contextUsage?.percent?.toFixed(0) ?? '?';
 
           const modelName = model?.id.replace(/^claude-/, '') || 'no-model';
           const dim = (text: string) => theme.fg('dim', text);
@@ -381,9 +379,7 @@ export default function (pi: ExtensionAPI) {
             contextPercent === '?'
               ? `?/${formatTokens(contextWindow)}`
               : `${contextPercent}%/${formatTokens(contextWindow)}`;
-          if (contextPercentValue > 90) topParts.push(theme.fg('error', contextDisplay));
-          else if (contextPercentValue > 70) topParts.push(theme.fg('warning', contextDisplay));
-          else topParts.push(dim(contextDisplay));
+          topParts.push(dim(contextDisplay));
 
           const statsParts: string[] = [];
           if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
