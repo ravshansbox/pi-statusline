@@ -323,7 +323,7 @@ export default function (pi: ExtensionAPI) {
   let toolRegistered = false;
 
   pi.on('session_start', async (_event, ctx) => {
-    if (ctx.mode !== 'tui') return;
+    if (!ctx.hasUI) return;
     if (!toolRegistered) {
       toolRegistered = true;
       pi.registerTool({
@@ -350,6 +350,7 @@ export default function (pi: ExtensionAPI) {
         renderResult: () => new Container(),
       });
     }
+    if (ctx.mode !== 'tui') return;
 
     ctx.ui.setFooter((tui, theme, footerData) => {
       const unsub = footerData.onBranchChange(() => tui.requestRender());

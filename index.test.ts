@@ -87,6 +87,7 @@ function render(options: {
   };
   const ctx = {
     mode: 'tui',
+    hasUI: true,
     model,
     thinkingLevel: options.thinkingLevel ?? 'high',
     ui: {
@@ -425,17 +426,22 @@ test('shows Ready again when the working indicator clears', async () => {
 async function startSession(mode: string, starts = 1) {
   const { handlers, tools, registered, names } = fakePi();
   const cwd = '/work/session-tools';
+  const customised: string[] = [];
   for (let i = 0; i < starts; i++) {
     await handlers.get('session_start')?.(
       { type: 'session_start' },
       {
         mode,
+        hasUI: mode === 'tui' || mode === 'rpc',
         sessionManager: { getCwd: () => cwd, getSessionDir: () => defaultSessionDir(cwd) },
-        ui: { setFooter: () => {}, setEditorComponent: () => {} },
+        ui: {
+          setFooter: () => customised.push('footer'),
+          setEditorComponent: () => customised.push('editor'),
+        },
       },
     );
   }
-  return { tools, registered, names };
+  return { tools, registered, names, customised };
 }
 
 test('offers the set_session_name tool once across new sessions', async () => {
@@ -443,8 +449,14 @@ test('offers the set_session_name tool once across new sessions', async () => {
   assert.deepEqual(registered, ['set_session_name']);
 });
 
-test('does not offer the set_session_name tool outside the TUI', async () => {
-  for (const mode of ['print', 'json', 'rpc']) {
+test('offers the set_session_name tool in RPC mode without the TUI footer or editor', async () => {
+  const { tools, customised } = await startSession('rpc');
+  assert.ok(tools.has('set_session_name'));
+  assert.deepEqual(customised, []);
+});
+
+test('does not offer the set_session_name tool without a UI', async () => {
+  for (const mode of ['print', 'json']) {
     const { tools } = await startSession(mode);
     assert.equal(tools.has('set_session_name'), false, mode);
   }
