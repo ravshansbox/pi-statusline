@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -932,6 +932,21 @@ test('turns prediction off and on with /predict and remembers it', async () => {
   assert.deepEqual(second.notifications, ['Prompt prediction on']);
   await settle(second.handlers, second.ctx);
   assert.equal(requests.length, 1);
+});
+
+test('keeps prediction on when the settings file is not an object', async () => {
+  const settingsFile = join(agentDir, 'pi-statusline.json');
+  writeFileSync(settingsFile, 'null\n');
+  try {
+    const requests: unknown[] = [];
+    const { handlers, ctx } = await startEditor('/work/predict-null', undefined, undefined, {
+      complete: predicting('run the tests', requests),
+    });
+    await settle(handlers, ctx);
+    assert.equal(requests.length, 1);
+  } finally {
+    rmSync(settingsFile, { force: true });
+  }
 });
 
 test('does not hold up the agent while predicting', async () => {

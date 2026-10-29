@@ -355,9 +355,13 @@ async function openReverseSearch(
 
 const settingsPath = () => join(getAgentDir(), 'pi-statusline.json');
 
-async function loadSettings(): Promise<{ predict?: boolean }> {
+type Settings = { predict?: boolean };
+
+async function loadSettings(): Promise<Settings> {
   try {
-    return JSON.parse(await readFile(settingsPath(), 'utf8'));
+    const settings: unknown = JSON.parse(await readFile(settingsPath(), 'utf8'));
+    if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) return {};
+    return settings as Settings;
   } catch {
     return {};
   }
