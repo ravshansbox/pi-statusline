@@ -396,7 +396,7 @@ async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Pr
   }
   const recent = prompts
     .slice(-5)
-    .map((prompt) => `- ${prompt}`)
+    .map((prompt) => `- ${prompt.slice(0, 500)}`)
     .join('\n');
   const response = await ctx.modelRegistry.complete(
     ctx.model,
@@ -409,7 +409,7 @@ async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Pr
           content: [
             {
               type: 'text',
-              text: `Recent user prompts:\n${recent}\n\nLast assistant reply:\n${reply}`,
+              text: `Recent user prompts:\n${recent}\n\nLast assistant reply:\n${reply.slice(-2000)}`,
             },
           ],
           timestamp: Date.now(),

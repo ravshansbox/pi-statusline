@@ -876,6 +876,20 @@ test('accepts the predicted prompt with tab and submits it with enter', async ()
   assert.deepEqual(submitted, ['run the tests']);
 });
 
+test('cuts long prompts and keeps the end of a long reply in the prediction request', async () => {
+  const requests: unknown[] = [];
+  const { handlers, ctx } = await startEditor('/work/predict-long', undefined, undefined, {
+    branch: [userEntry(`${'p'.repeat(500)}CUT`), assistantEntry(`OLD${'r'.repeat(2000)}`)],
+    complete: predicting('run the tests', requests),
+  });
+  await settle(handlers, ctx);
+  const request = JSON.stringify(requests[0]);
+  assert.match(request, new RegExp(`- ${'p'.repeat(500)}\\\\n`));
+  assert.doesNotMatch(request, /CUT/);
+  assert.match(request, new RegExp(`${'r'.repeat(2000)}"`));
+  assert.doesNotMatch(request, /OLD/);
+});
+
 test('dismisses the predicted prompt when typing', async () => {
   const { editor, handlers, ctx } = await startEditor(
     '/work/predict-dismiss',
