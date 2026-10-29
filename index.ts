@@ -466,6 +466,10 @@ export default function (pi: ExtensionAPI) {
       });
   });
 
+  pi.on('session_shutdown', () => {
+    prediction?.abort();
+  });
+
   pi.on('session_start', async (_event, ctx) => {
     prediction?.abort();
     activeEditor = undefined;

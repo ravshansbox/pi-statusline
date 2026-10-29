@@ -960,6 +960,19 @@ test('cancels a running prediction when a new session starts', async () => {
   assert.equal(signal?.aborted, true);
 });
 
+test('cancels a running prediction when the session shuts down', async () => {
+  let signal: AbortSignal | undefined;
+  const { handlers, ctx } = await startEditor('/work/predict-shutdown', undefined, undefined, {
+    complete: (_model, _context, options) => {
+      signal = options.signal;
+      return new Promise(() => {});
+    },
+  });
+  await settle(handlers, ctx);
+  await handlers.get('session_shutdown')?.({ type: 'session_shutdown', reason: 'new' }, ctx);
+  assert.equal(signal?.aborted, true);
+});
+
 test('turns prediction off and on with /predict and remembers it', async () => {
   const requests: unknown[] = [];
   const first = await startEditor('/work/predict-toggle', undefined, undefined, {
