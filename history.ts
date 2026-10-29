@@ -5,6 +5,7 @@ import { getAgentDir, SessionManager } from '@earendil-works/pi-coding-agent';
 export type HistoryScope = 'current' | 'all';
 
 const HISTORY_LIMIT = 500;
+const PARALLEL_READS = 32;
 
 type RawEntry = {
   type?: string;
@@ -49,7 +50,7 @@ async function readPrompts(filePath: string, fallbackTime: number): Promise<Time
   }
   const prompts: TimedPrompt[] = [];
   for (const line of raw.split('\n')) {
-    if (!line.trim()) continue;
+    if (!line.includes('"role":"user"') && !line.includes('"role":"bashExecution"')) continue;
     let entry: RawEntry;
     try {
       entry = JSON.parse(line) as RawEntry;
@@ -100,8 +101,12 @@ export async function loadPromptHistory(
   }
   const ordered = [...sessions].sort((a, b) => a.modified.getTime() - b.modified.getTime());
   const timed: TimedPrompt[] = [...extra];
-  for (const session of ordered) {
-    timed.push(...(await readPrompts(session.path, session.modified.getTime())));
+  for (let start = 0; start < ordered.length; start += PARALLEL_READS) {
+    const batch = ordered.slice(start, start + PARALLEL_READS);
+    const results = await Promise.all(
+      batch.map((session) => readPrompts(session.path, session.modified.getTime())),
+    );
+    for (const prompts of results) timed.push(...prompts);
   }
   const all = timed.sort((a, b) => a.time - b.time).map((prompt) => prompt.text);
   return uniqueNewest(all, HISTORY_LIMIT);
