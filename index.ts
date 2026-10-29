@@ -14,6 +14,7 @@ import {
   decodeKittyPrintable,
   fuzzyFilter,
   matchesKey,
+  renderFakeCursor,
   SelectList,
   stripTerminalSequences,
   type SelectListTheme,
@@ -144,12 +145,16 @@ class HistoryEditor extends CustomEditor {
   }
 
   private renderSuggestion(line: string, width: number): string {
-    const start = line.replace(/ +$/, '');
+    const cursor = line.indexOf(renderFakeCursor(' '));
+    if (cursor < 0) return line;
+    const start = line.slice(0, cursor);
     const room = width - visibleWidth(start);
     if (room < 1) return line;
     const ghost = truncateToWidth(this.suggestion, room, '\u2026');
+    const [first = '', ...rest] = Array.from(ghost);
     const dim = this.dimColor ?? ((text: string) => text);
-    return start + dim(ghost) + ' '.repeat(room - visibleWidth(ghost));
+    const padding = ' '.repeat(room - visibleWidth(ghost));
+    return start + renderFakeCursor(dim(first)) + dim(rest.join('')) + padding;
   }
 
   protected override renderTopBorder(width: number, hiddenLineCount: number): string {

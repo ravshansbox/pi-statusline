@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { initTheme, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { stripTerminalSequences, visibleWidth } from '@earendil-works/pi-tui';
+import { renderFakeCursor, stripTerminalSequences, visibleWidth } from '@earendil-works/pi-tui';
 import extension from './index.ts';
 
 const agentDir = mkdtempSync(join(tmpdir(), 'pi-statusline-'));
@@ -845,14 +845,16 @@ async function settle(handlers: Map<string, Handler>, ctx: unknown, aborted = fa
   await new Promise((resolve) => setImmediate(resolve));
 }
 
-test('shows the predicted next prompt dimmed in the empty editor', async () => {
+test('shows the predicted next prompt dimmed in the empty editor with the cursor on its first character', async () => {
   const requests: unknown[] = [];
   const { editor, handlers, ctx } = await startEditor('/work/predict-show', undefined, undefined, {
     branch: [userEntry('add a test'), assistantEntry('Added the test.')],
     complete: predicting('run the tests', requests),
   });
   await settle(handlers, ctx);
-  assert.ok(editor.render(80)[1]?.includes(themed('dim', 'run the tests')));
+  const line = editor.render(80)[1] ?? '';
+  assert.ok(line.includes(renderFakeCursor(themed('dim', 'r')) + themed('dim', 'un the tests')));
+  assert.equal(visibleWidth(line), 80);
   assert.equal(editor.getText(), '');
   const request = JSON.stringify(requests[0]);
   assert.match(request, /add a test/);
