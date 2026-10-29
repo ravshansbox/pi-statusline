@@ -1,6 +1,8 @@
-import { basename } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import {
   CustomEditor,
+  getAgentDir,
   getSelectListTheme,
   type ExtensionAPI,
   type ExtensionContext,
@@ -86,6 +88,19 @@ class HistoryEditor extends CustomEditor {
   onPromptSent?: (text: string) => void;
   getSessionName?: () => string | undefined;
   dimColor?: (text: string) => string;
+  onInput?: () => void;
+  private suggestion = '';
+
+  setSuggestion(text: string): void {
+    this.suggestion = text;
+    this.tui.requestRender();
+  }
+
+  clearSuggestion(): void {
+    if (!this.suggestion) return;
+    this.suggestion = '';
+    this.tui.requestRender();
+  }
 
   override setWorkingStatusIndicator(
     indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0],
@@ -111,10 +126,23 @@ class HistoryEditor extends CustomEditor {
       this.borderColor = this.dimColor;
     }
     try {
-      return super.render(width);
+      const lines = super.render(width);
+      if (this.suggestion && !this.getText() && lines[1] !== undefined) {
+        lines[1] = this.renderSuggestion(lines[1], width);
+      }
+      return lines;
     } finally {
       this.borderColor = assigned;
     }
+  }
+
+  private renderSuggestion(line: string, width: number): string {
+    const start = line.replace(/ +$/, '');
+    const room = width - visibleWidth(start);
+    if (room < 1) return line;
+    const ghost = truncateToWidth(this.suggestion, room, '\u2026');
+    const dim = this.dimColor ?? ((text: string) => text);
+    return start + dim(ghost) + ' '.repeat(room - visibleWidth(ghost));
   }
 
   protected override renderTopBorder(width: number, hiddenLineCount: number): string {
@@ -152,6 +180,13 @@ class HistoryEditor extends CustomEditor {
   }
 
   override handleInput(data: string): void {
+    this.onInput?.();
+    const suggestion = this.suggestion;
+    this.clearSuggestion();
+    if (suggestion && !this.getText() && matchesKey(data, 'tab')) {
+      this.setText(suggestion);
+      return;
+    }
     if (matchesKey(data, 'ctrl+r')) {
       this.onReverseSearch?.();
       return;
@@ -318,9 +353,104 @@ async function openReverseSearch(
   if (result) ctx.ui.setEditorText(result);
 }
 
+const settingsPath = () => join(getAgentDir(), 'pi-statusline.json');
+
+async function loadSettings(): Promise<{ predict?: boolean }> {
+  try {
+    return JSON.parse(await readFile(settingsPath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function saveSettings(change: { predict: boolean }) {
+  const settings = { ...(await loadSettings()), ...change };
+  await writeFile(settingsPath(), JSON.stringify(settings, null, 2) + '\n');
+}
+
+function textOf(content: string | { type: string; text?: string }[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))
+    .join('\n')
+    .trim();
+}
+
+async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Promise<string> {
+  if (!ctx.model) return '';
+  const prompts: string[] = [];
+  let reply = '';
+  for (const entry of ctx.sessionManager.getBranch()) {
+    if (entry.type !== 'message') continue;
+    const message = entry.message;
+    if (message.role === 'user') {
+      prompts.push(textOf(message.content));
+      reply = '';
+    } else if (message.role === 'assistant') {
+      reply = textOf(message.content) || reply;
+    }
+  }
+  const recent = prompts
+    .slice(-5)
+    .map((prompt) => `- ${prompt}`)
+    .join('\n');
+  const response = await ctx.modelRegistry.complete(
+    ctx.model,
+    {
+      systemPrompt:
+        "Predict the next prompt the user will send to their coding agent. Reply with only that prompt, on one line, in the user's style. Reply with nothing if you cannot tell.",
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Recent user prompts:\n${recent}\n\nLast assistant reply:\n${reply}`,
+            },
+          ],
+          timestamp: Date.now(),
+        },
+      ],
+    },
+    { signal },
+  );
+  if (response.stopReason === 'aborted' || response.stopReason === 'error') return '';
+  return textOf(response.content).replace(/\s+/g, ' ').trim();
+}
+
 export default function (pi: ExtensionAPI) {
   const sessionPrompts: TimedPrompt[] = [];
   let toolRegistered = false;
+  let predict = true;
+  let prediction: AbortController | undefined;
+  let activeEditor: HistoryEditor | undefined;
+
+  pi.registerCommand('predict', {
+    description: 'Turn next prompt prediction on or off',
+    handler: async (_args, ctx) => {
+      predict = !predict;
+      if (!predict) {
+        prediction?.abort();
+        activeEditor?.clearSuggestion();
+      }
+      await saveSettings({ predict });
+      ctx.ui.notify(`Prompt prediction ${predict ? 'on' : 'off'}`, 'info');
+    },
+  });
+
+  pi.on('agent_settled', (event, ctx) => {
+    const editor = activeEditor;
+    if (event.aborted || !predict || !editor || editor.getText()) return;
+    prediction?.abort();
+    const controller = new AbortController();
+    prediction = controller;
+    void predictNextPrompt(ctx, controller.signal)
+      .catch(() => '')
+      .then((text) => {
+        if (controller.signal.aborted || editor.getText() || !text) return;
+        editor.setSuggestion(text);
+      });
+  });
 
   pi.on('session_start', async (_event, ctx) => {
     if (!ctx.hasUI) return;
@@ -423,6 +553,7 @@ export default function (pi: ExtensionAPI) {
       };
     });
 
+    predict = (await loadSettings()).predict !== false;
     sessionPrompts.length = 0;
     const prompts = await loadPromptHistory(
       ctx.sessionManager.getCwd(),
@@ -437,6 +568,8 @@ export default function (pi: ExtensionAPI) {
       editor.setWorkingStatusIndicator(undefined);
       editor.onPromptSent = (text) => sessionPrompts.push({ text, time: Date.now() });
       editor.onReverseSearch = () => void openReverseSearch(ctx, editor, sessionPrompts);
+      editor.onInput = () => prediction?.abort();
+      activeEditor = editor;
       return editor;
     });
   });

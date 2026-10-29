@@ -34,9 +34,12 @@ type Tool = {
   renderResult?: (...args: unknown[]) => Component;
 };
 
+type Command = { handler: (args: string, ctx: unknown) => Promise<void> };
+
 function fakePi(sessionName?: string) {
   const handlers = new Map<string, Handler>();
   const tools = new Map<string, Tool>();
+  const commands = new Map<string, Command>();
   const registered: string[] = [];
   const names: string[] = [];
   const pi = {
@@ -47,13 +50,16 @@ function fakePi(sessionName?: string) {
       tools.set(tool.name, tool);
       registered.push(tool.name);
     },
+    registerCommand: (name: string, command: Command) => {
+      commands.set(name, command);
+    },
     setSessionName: (name: string) => {
       names.push(name);
     },
     getSessionName: () => sessionName,
   } as unknown as ExtensionAPI;
   extension(pi);
-  return { handlers, tools, registered, names };
+  return { handlers, tools, commands, registered, names };
 }
 
 const theme = {
@@ -183,8 +189,21 @@ function writeSession(
   writeFileSync(file, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
 }
 
-async function startEditor(cwd: string, sessionName?: string, sessionDir = defaultSessionDir(cwd)) {
-  const { handlers } = fakePi(sessionName);
+type Complete = (
+  model: unknown,
+  context: unknown,
+  options: { signal: AbortSignal },
+) => Promise<unknown>;
+
+async function startEditor(
+  cwd: string,
+  sessionName?: string,
+  sessionDir = defaultSessionDir(cwd),
+  options: { branch?: unknown[]; complete?: Complete } = {},
+) {
+  const { handlers, commands } = fakePi(sessionName);
+  const submitted: string[] = [];
+  const notifications: string[] = [];
 
   let editorFactory: ((tui: unknown, theme: unknown, kb: unknown) => Component) | undefined;
   let search: Component | undefined;
@@ -195,7 +214,14 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
   const ctx = {
     mode: 'tui',
     hasUI: true,
-    sessionManager: { getEntries: () => [], getCwd: () => cwd, getSessionDir: () => sessionDir },
+    sessionManager: {
+      getEntries: () => [],
+      getBranch: () => options.branch ?? [],
+      getCwd: () => cwd,
+      getSessionDir: () => sessionDir,
+    },
+    model: { id: 'claude-opus', provider: 'anthropic' },
+    modelRegistry: { complete: options.complete ?? (async () => ({ content: [] })) },
     getContextUsage: () => undefined,
     ui: {
       theme: { fg: themed },
@@ -205,6 +231,7 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
       },
       getEditorText: () => editor.getText(),
       setEditorText: (text: string) => editorText(text),
+      notify: (message: string) => notifications.push(message),
       custom: (f: CustomFactory) =>
         new Promise((resolve) => {
           search = f(tui, theme, keybindings, resolve);
@@ -214,9 +241,20 @@ async function startEditor(cwd: string, sessionName?: string, sessionDir = defau
   await handlers.get('session_start')?.({ type: 'session_start' }, ctx);
   assert.ok(editorFactory);
   const editor = editorFactory(tui, editorTheme, keybindings);
-  (editor as Component & { onSubmit?: (text: string) => void }).onSubmit = (text) =>
+  (editor as Component & { onSubmit?: (text: string) => void }).onSubmit = (text) => {
+    submitted.push(text);
     editor.addToHistory?.(text);
-  return { editor, handlers, getSearch: () => search, editorTextSet };
+  };
+  return {
+    editor,
+    handlers,
+    commands,
+    ctx,
+    submitted,
+    notifications,
+    getSearch: () => search,
+    editorTextSet,
+  };
 }
 
 async function allFoldersLoaded(search: Component) {
@@ -764,4 +802,147 @@ test('puts a prompt sent later in a parallel session above one sent earlier here
   await allFoldersLoaded(search);
   search.handleInput('\r');
   assert.equal(await editorTextSet, 'sent later elsewhere');
+});
+
+function userEntry(text: string) {
+  return { type: 'message', message: { role: 'user', content: text } };
+}
+
+function assistantEntry(text: string) {
+  return {
+    type: 'message',
+    message: { role: 'assistant', content: [{ type: 'text', text }] },
+  };
+}
+
+function predicting(text: string, requests: unknown[] = []): Complete {
+  return async (_model, context) => {
+    requests.push(context);
+    return { content: [{ type: 'text', text }], stopReason: 'stop' };
+  };
+}
+
+async function settle(handlers: Map<string, Handler>, ctx: unknown, aborted = false) {
+  await handlers.get('agent_settled')?.({ type: 'agent_settled', aborted }, ctx);
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+test('shows the predicted next prompt dimmed in the empty editor', async () => {
+  const requests: unknown[] = [];
+  const { editor, handlers, ctx } = await startEditor('/work/predict-show', undefined, undefined, {
+    branch: [userEntry('add a test'), assistantEntry('Added the test.')],
+    complete: predicting('run the tests', requests),
+  });
+  await settle(handlers, ctx);
+  assert.ok(editor.render(80)[1]?.includes(themed('dim', 'run the tests')));
+  assert.equal(editor.getText(), '');
+  const request = JSON.stringify(requests[0]);
+  assert.match(request, /add a test/);
+  assert.match(request, /Added the test\./);
+});
+
+test('sends only the last five user prompts with the prediction request', async () => {
+  const requests: unknown[] = [];
+  const { handlers, ctx } = await startEditor('/work/predict-recent', undefined, undefined, {
+    branch: ['one', 'two', 'three', 'four', 'five', 'six'].map(userEntry),
+    complete: predicting('seven', requests),
+  });
+  await settle(handlers, ctx);
+  const request = JSON.stringify(requests[0]);
+  assert.doesNotMatch(request, /- one/);
+  assert.match(request, /- two/);
+  assert.match(request, /six/);
+});
+
+test('accepts the predicted prompt with tab and submits it with enter', async () => {
+  const { editor, handlers, ctx, submitted } = await startEditor(
+    '/work/predict-accept',
+    undefined,
+    undefined,
+    { complete: predicting('run the tests') },
+  );
+  await settle(handlers, ctx);
+  editor.handleInput('\t');
+  assert.equal(editor.getText(), 'run the tests');
+  editor.handleInput('\r');
+  assert.deepEqual(submitted, ['run the tests']);
+});
+
+test('dismisses the predicted prompt when typing', async () => {
+  const { editor, handlers, ctx } = await startEditor(
+    '/work/predict-dismiss',
+    undefined,
+    undefined,
+    {
+      complete: predicting('run the tests'),
+    },
+  );
+  await settle(handlers, ctx);
+  editor.handleInput('x');
+  assert.ok(!editor.render(80).some((line) => line.includes('run the tests')));
+  editor.handleInput('\x7f');
+  editor.handleInput('\t');
+  assert.notEqual(editor.getText(), 'run the tests');
+});
+
+test('drops a prediction that arrives after typing starts', async () => {
+  let finish: (value: unknown) => void = () => {};
+  let signal: AbortSignal | undefined;
+  const { editor, handlers, ctx } = await startEditor('/work/predict-late', undefined, undefined, {
+    complete: (_model, _context, options) => {
+      signal = options.signal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  });
+  const settled = settle(handlers, ctx);
+  editor.handleInput('x');
+  assert.equal(signal?.aborted, true);
+  finish({ content: [{ type: 'text', text: 'run the tests' }], stopReason: 'aborted' });
+  await settled;
+  assert.ok(!editor.render(80).some((line) => line.includes('run the tests')));
+});
+
+test('does not predict after an aborted run', async () => {
+  const requests: unknown[] = [];
+  const { handlers, ctx } = await startEditor('/work/predict-aborted', undefined, undefined, {
+    complete: predicting('run the tests', requests),
+  });
+  await settle(handlers, ctx, true);
+  assert.equal(requests.length, 0);
+});
+
+test('turns prediction off and on with /predict and remembers it', async () => {
+  const requests: unknown[] = [];
+  const first = await startEditor('/work/predict-toggle', undefined, undefined, {
+    complete: predicting('run the tests', requests),
+  });
+  await first.commands.get('predict')?.handler('', first.ctx);
+  assert.deepEqual(first.notifications, ['Prompt prediction off']);
+  await settle(first.handlers, first.ctx);
+  assert.equal(requests.length, 0);
+
+  const second = await startEditor('/work/predict-toggle', undefined, undefined, {
+    complete: predicting('run the tests', requests),
+  });
+  await settle(second.handlers, second.ctx);
+  assert.equal(requests.length, 0);
+  await second.commands.get('predict')?.handler('', second.ctx);
+  assert.deepEqual(second.notifications, ['Prompt prediction on']);
+  await settle(second.handlers, second.ctx);
+  assert.equal(requests.length, 1);
+});
+
+test('does not hold up the agent while predicting', async () => {
+  const { handlers, ctx } = await startEditor('/work/predict-background', undefined, undefined, {
+    complete: () => new Promise(() => {}),
+  });
+  const result = await Promise.race([
+    Promise.resolve(
+      handlers.get('agent_settled')?.({ type: 'agent_settled', aborted: false }, ctx),
+    ).then(() => 'settled'),
+    new Promise((resolve) => setTimeout(() => resolve('waiting'), 50)),
+  ]);
+  assert.equal(result, 'settled');
 });
