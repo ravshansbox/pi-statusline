@@ -406,14 +406,19 @@ export default function (pi: ExtensionAPI) {
             .map(([, text]) => sanitizeStatusText(text));
 
           const separator = dim(' • ');
-          const line = [...topParts, ...statusParts].join(separator);
-          if (statusParts.length === 0 || visibleWidth(line) <= width) {
-            return [truncateToWidth(line, width, dim('...'))];
+          const lines: string[] = [];
+          let line = '';
+          for (const part of [...topParts, ...statusParts]) {
+            const fitted = truncateToWidth(part, width, dim('...'));
+            if (line && visibleWidth(line + separator + fitted) <= width) {
+              line += separator + fitted;
+            } else {
+              if (line) lines.push(line);
+              line = fitted;
+            }
           }
-          return [
-            truncateToWidth(topParts.join(separator), width, dim('...')),
-            truncateToWidth(statusParts.join(separator), width, dim('...')),
-          ];
+          lines.push(line);
+          return lines;
         },
       };
     });

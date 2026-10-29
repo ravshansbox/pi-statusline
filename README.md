@@ -16,7 +16,9 @@ Pi loads the extension from `./index.ts`. It replaces the built-in footer with a
 
 - the directory name, git branch, model and thinking level
 - token usage, cache hit rate (only when below 80%) and context usage
-- statuses set by other extensions, at the end of the line, or on a second line when the line is too wide
+- statuses set by other extensions, at the end of the line
+
+Parts wrap onto the next line when the screen is too narrow. A part wider than the screen is cut short with `...`.
 
 It also replaces the editor to add shell-style prompt history:
 
