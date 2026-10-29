@@ -921,6 +921,19 @@ test('does not predict after an aborted run', async () => {
   assert.equal(requests.length, 0);
 });
 
+test('cancels a running prediction when a new session starts', async () => {
+  let signal: AbortSignal | undefined;
+  const { handlers, ctx } = await startEditor('/work/predict-switch', undefined, undefined, {
+    complete: (_model, _context, options) => {
+      signal = options.signal;
+      return new Promise(() => {});
+    },
+  });
+  await settle(handlers, ctx);
+  await handlers.get('session_start')?.({ type: 'session_start' }, ctx);
+  assert.equal(signal?.aborted, true);
+});
+
 test('turns prediction off and on with /predict and remembers it', async () => {
   const requests: unknown[] = [];
   const first = await startEditor('/work/predict-toggle', undefined, undefined, {

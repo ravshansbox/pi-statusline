@@ -463,6 +463,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on('session_start', async (_event, ctx) => {
+    prediction?.abort();
+    activeEditor = undefined;
     if (!ctx.hasUI) return;
     if (!toolRegistered) {
       toolRegistered = true;
