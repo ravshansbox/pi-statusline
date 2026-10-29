@@ -51,9 +51,13 @@ function formatTokens(count: number): string {
   return `${Math.round(count / 1000000)}m`;
 }
 
+function cacheHitRate(u: Usage): number | undefined {
+  const prompt = u.input + u.cacheRead + u.cacheWrite;
+  return prompt > 0 ? (u.cacheRead / prompt) * 100 : undefined;
+}
+
 function getUsage(ctx: ExtensionContext) {
   const totals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  let latestCacheHitRate: number | undefined;
   const add = (u: Usage) => {
     totals.input += u.input;
     totals.output += u.output;
@@ -64,10 +68,7 @@ function getUsage(ctx: ExtensionContext) {
     if (entry.type === 'usage') {
       add(entry.usage);
     } else if (entry.type === 'message' && entry.message.role === 'assistant') {
-      const u = entry.message.usage;
-      add(u);
-      const prompt = u.input + u.cacheRead + u.cacheWrite;
-      latestCacheHitRate = prompt > 0 ? (u.cacheRead / prompt) * 100 : undefined;
+      add(entry.message.usage);
     } else if (
       entry.type === 'message' &&
       entry.message.role === 'toolResult' &&
@@ -76,6 +77,12 @@ function getUsage(ctx: ExtensionContext) {
       add(entry.message.usage);
     } else if ((entry.type === 'branch_summary' || entry.type === 'compaction') && entry.usage) {
       add(entry.usage);
+    }
+  }
+  let latestCacheHitRate: number | undefined;
+  for (const entry of ctx.sessionManager.getBranch()) {
+    if (entry.type === 'message' && entry.message.role === 'assistant') {
+      latestCacheHitRate = cacheHitRate(entry.message.usage);
     }
   }
   return { totals, latestCacheHitRate };

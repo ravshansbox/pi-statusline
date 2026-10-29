@@ -73,6 +73,7 @@ function usage(input: number, output: number, cacheRead = 0, cacheWrite = 0) {
 
 function render(options: {
   entries?: unknown[];
+  branchEntries?: unknown[];
   leafId?: () => string | null;
   branch?: string | null;
   statuses?: Map<string, string>;
@@ -104,6 +105,7 @@ function render(options: {
     },
     sessionManager: {
       getEntries: () => options.entries ?? [],
+      getBranch: () => options.branchEntries ?? options.entries ?? [],
       getLeafId: options.leafId ?? (() => null),
       getCwd: () => '/tmp/project',
       getSessionDir: () => defaultSessionDir('/tmp/project'),
@@ -610,6 +612,13 @@ test('hides cache hit rate when it rounds to 80% or above', () => {
   assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R8k W2k');
 });
 
+test('takes the cache hit rate from the current branch and totals from all branches', () => {
+  const here = { type: 'message', message: { role: 'assistant', usage: usage(50, 0, 50) } };
+  const elsewhere = { type: 'message', message: { role: 'assistant', usage: usage(10, 0, 90) } };
+  const line = render({ entries: [here, elsewhere], branchEntries: [here] })[0];
+  assert.equal(line, 'project • opus:high • 25%/200k • ↑60 R140 CH50%');
+});
+
 test('updates token usage only when the session changes', () => {
   const entries: unknown[] = [
     { type: 'message', message: { role: 'assistant', usage: usage(8, 0) } },
@@ -624,6 +633,7 @@ test('updates token usage only when the session changes', () => {
         return Reflect.get(target, key, receiver);
       },
     }),
+    branchEntries: [],
     leafId: () => leaf,
     onRendered: (r) => {
       rerender = r;
