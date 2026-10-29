@@ -437,8 +437,14 @@ export default function (pi: ExtensionAPI) {
         prediction?.abort();
         activeEditor?.clearSuggestion();
       }
-      await saveSettings({ predict });
-      ctx.ui.notify(`Prompt prediction ${predict ? 'on' : 'off'}`, 'info');
+      const state = `Prompt prediction ${predict ? 'on' : 'off'}`;
+      try {
+        await saveSettings({ predict });
+      } catch {
+        ctx.ui.notify(`${state}, but the setting could not be saved`, 'warning');
+        return;
+      }
+      ctx.ui.notify(state, 'info');
     },
   });
 

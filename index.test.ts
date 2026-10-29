@@ -949,6 +949,26 @@ test('keeps prediction on when the settings file is not an object', async () => 
   }
 });
 
+test('turns prediction off with /predict and warns when the setting cannot be saved', async () => {
+  const settingsFile = join(agentDir, 'pi-statusline.json');
+  mkdirSync(settingsFile);
+  try {
+    const requests: unknown[] = [];
+    const { commands, handlers, ctx, notifications } = await startEditor(
+      '/work/predict-unsaved',
+      undefined,
+      undefined,
+      { complete: predicting('run the tests', requests) },
+    );
+    await commands.get('predict')?.handler('', ctx);
+    assert.deepEqual(notifications, ['Prompt prediction off, but the setting could not be saved']);
+    await settle(handlers, ctx);
+    assert.equal(requests.length, 0);
+  } finally {
+    rmSync(settingsFile, { recursive: true, force: true });
+  }
+});
+
 test('does not hold up the agent while predicting', async () => {
   const { handlers, ctx } = await startEditor('/work/predict-background', undefined, undefined, {
     complete: () => new Promise(() => {}),
