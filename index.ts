@@ -25,7 +25,7 @@ import {
 import { Type } from 'typebox';
 import {
   type HistoryScope,
-  isRecallablePrompt,
+  extractText,
   isSkillBlock,
   loadPromptHistory,
   type TimedPrompt,
@@ -176,7 +176,7 @@ class HistoryEditor extends CustomEditor {
   override addToHistory(text: string): void {
     const trimmed = text.trim();
     if (isSkillBlock(trimmed)) return;
-    if (isRecallablePrompt(trimmed)) {
+    if (trimmed) {
       if (!this.submitting && this.prompts.includes(trimmed)) return;
       if (this.submitting) this.onPromptSent?.(trimmed);
       this.prompts = [...this.prompts.filter((prompt) => prompt !== trimmed), trimmed];
@@ -379,14 +379,6 @@ async function saveSettings(change: { predict: boolean }) {
   await writeFile(settingsPath(), JSON.stringify(settings, null, 2) + '\n');
 }
 
-function textOf(content: string | { type: string; text?: string }[]): string {
-  if (typeof content === 'string') return content;
-  return content
-    .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))
-    .join('\n')
-    .trim();
-}
-
 async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Promise<string> {
   if (!ctx.model) return '';
   const prompts: string[] = [];
@@ -395,10 +387,10 @@ async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Pr
     if (entry.type !== 'message') continue;
     const message = entry.message;
     if (message.role === 'user') {
-      prompts.push(textOf(message.content));
+      prompts.push(extractText(message.content).trim());
       reply = '';
     } else if (message.role === 'assistant') {
-      reply = textOf(message.content) || reply;
+      reply = extractText(message.content).trim() || reply;
     }
   }
   const recent = prompts
@@ -426,7 +418,7 @@ async function predictNextPrompt(ctx: ExtensionContext, signal: AbortSignal): Pr
     { signal },
   );
   if (response.stopReason === 'aborted' || response.stopReason === 'error') return '';
-  return textOf(response.content).replace(/\s+/g, ' ').trim();
+  return extractText(response.content).replace(/\s+/g, ' ').trim();
 }
 
 export default function (pi: ExtensionAPI) {

@@ -13,7 +13,7 @@ type RawEntry = {
   message?: { role?: string; content?: unknown; command?: unknown; excludeFromContext?: unknown };
 };
 
-function extractText(content: unknown): string {
+export function extractText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
   return content
@@ -22,7 +22,7 @@ function extractText(content: unknown): string {
     .join('\n');
 }
 
-export function isRecallablePrompt(text: string): boolean {
+function isRecallablePrompt(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.length > 0 && !isSkillBlock(trimmed);
 }
