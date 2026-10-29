@@ -577,7 +577,11 @@ export default function (pi: ExtensionAPI) {
       editor.dimColor = (text) => ctx.ui.theme.fg('dim', text);
       editor.setWorkingStatusIndicator(undefined);
       editor.onPromptSent = (text) => sessionPrompts.push({ text, time: Date.now() });
-      editor.onReverseSearch = () => void openReverseSearch(ctx, editor, sessionPrompts);
+      editor.onReverseSearch = () =>
+        void openReverseSearch(ctx, editor, sessionPrompts).catch((error: unknown) => {
+          const reason = error instanceof Error ? error.message : String(error);
+          ctx.ui.notify(`Could not open reverse search: ${reason}`, 'error');
+        });
       editor.onInput = () => prediction?.abort();
       activeEditor = editor;
       return editor;

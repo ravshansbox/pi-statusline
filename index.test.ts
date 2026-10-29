@@ -420,6 +420,14 @@ test('filters reverse search by characters typed as Kitty key codes', async () =
   assert.equal(await editorTextSet, 'run tests');
 });
 
+test('reports an error when reverse search cannot open', async () => {
+  const { editor, ctx, notifications } = await startEditor('/work/search-error');
+  (ctx.ui as { custom: unknown }).custom = () => Promise.reject(new Error('no UI'));
+  editor.handleInput('\x12');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(notifications, ['Could not open reverse search: no UI']);
+});
+
 test('shows the working indicator in the editor border', async () => {
   const { editor } = await startEditor('/work/status');
   const indicator = { renderInBorder: () => 'Working', render: () => [], invalidate: () => {} };
