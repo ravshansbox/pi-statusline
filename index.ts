@@ -553,7 +553,8 @@ export default function (pi: ExtensionAPI) {
 
           const statusParts = Array.from(footerData.getExtensionStatuses().entries())
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([, text]) => sanitizeStatusText(text));
+            .map(([, text]) => sanitizeStatusText(text))
+            .filter((text) => text !== '');
 
           const separator = dim(' • ');
           const lines: string[] = [];

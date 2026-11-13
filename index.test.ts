@@ -655,6 +655,21 @@ test('shows extension statuses sorted by key at the end of the line', () => {
   assert.deepEqual(render({ statuses }), ['project • opus:high • 25%/200k • first line • second']);
 });
 
+test('skips extension statuses that are empty or only whitespace', () => {
+  const statuses = new Map([
+    ['a', 'first'],
+    ['b', ''],
+    ['c', ' \n\t '],
+    ['d', 'second'],
+  ]);
+  const withoutEmpty = new Map([
+    ['a', 'first'],
+    ['d', 'second'],
+  ]);
+  assert.deepEqual(render({ statuses }), render({ statuses: withoutEmpty }));
+  assert.deepEqual(render({ statuses }), ['project • opus:high • 25%/200k • first • second']);
+});
+
 test('wraps parts onto the next line when the line does not fit', () => {
   const statuses = new Map([
     ['a', 'quota 42%'],
