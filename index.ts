@@ -532,8 +532,6 @@ export default function (pi: ExtensionAPI) {
           topParts.push(dim(contextDisplay));
 
           const statsParts: string[] = [];
-          if (totals.input) statsParts.push(`↑${formatTokens(totals.input)}`);
-          if (totals.output) statsParts.push(`↓${formatTokens(totals.output)}`);
           if (totals.cacheRead) statsParts.push(`R${formatTokens(totals.cacheRead)}`);
           if (totals.cacheWrite) statsParts.push(`W${formatTokens(totals.cacheWrite)}`);
           const cacheHitRate = latestCacheHitRate?.toFixed(0);

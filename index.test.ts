@@ -588,7 +588,7 @@ test('leaves out the git branch outside a repository', () => {
   assert.equal(render({})[0], 'project • opus:high • 25%/200k');
 });
 
-test('shows token usage and context', () => {
+test('shows cache usage and context without input or output tokens', () => {
   const line = render({
     entries: [
       {
@@ -597,7 +597,7 @@ test('shows token usage and context', () => {
       },
     ],
   })[0];
-  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R26k W7k CH79%');
+  assert.equal(line, 'project • opus:high • 25%/200k • R26k W7k CH79%');
 });
 
 test('hides cache hit rate when it rounds to 80% or above', () => {
@@ -609,19 +609,19 @@ test('hides cache hit rate when it rounds to 80% or above', () => {
       },
     ],
   })[0];
-  assert.equal(line, 'project • opus:high • 25%/200k • ↑8 ↓1k R8k W2k');
+  assert.equal(line, 'project • opus:high • 25%/200k • R8k W2k');
 });
 
 test('takes the cache hit rate from the current branch and totals from all branches', () => {
   const here = { type: 'message', message: { role: 'assistant', usage: usage(50, 0, 50) } };
   const elsewhere = { type: 'message', message: { role: 'assistant', usage: usage(10, 0, 90) } };
   const line = render({ entries: [here, elsewhere], branchEntries: [here] })[0];
-  assert.equal(line, 'project • opus:high • 25%/200k • ↑60 R140 CH50%');
+  assert.equal(line, 'project • opus:high • 25%/200k • R140 CH50%');
 });
 
-test('updates token usage only when the session changes', () => {
+test('updates cache usage only when the session changes', () => {
   const entries: unknown[] = [
-    { type: 'message', message: { role: 'assistant', usage: usage(8, 0) } },
+    { type: 'message', message: { role: 'assistant', usage: usage(0, 0, 8) } },
   ];
   let leaf = 'a';
   let reads = 0;
@@ -639,11 +639,11 @@ test('updates token usage only when the session changes', () => {
       rerender = r;
     },
   });
-  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • ↑8');
+  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • R8');
   assert.equal(reads, 1);
-  entries.push({ type: 'message', message: { role: 'assistant', usage: usage(2, 0) } });
+  entries.push({ type: 'message', message: { role: 'assistant', usage: usage(0, 0, 2) } });
   leaf = 'b';
-  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • ↑10');
+  assert.equal(rerender()[0], 'project • opus:high • 25%/200k • R10');
   assert.equal(reads, 2);
 });
 
@@ -702,7 +702,7 @@ test('shows high context usage in dim', () => {
     percent: 95,
     width: 200,
     theme: tagTheme,
-    entries: [{ type: 'message', message: { role: 'assistant', usage: usage(8, 0) } }],
+    entries: [{ type: 'message', message: { role: 'assistant', usage: usage(0, 0, 8) } }],
   })[0];
   assert.ok(line);
   let colour = '';
@@ -713,9 +713,9 @@ test('shows high context usage in dim', () => {
     else colours.push(...[...part].map(() => colour));
   }
   const plain = line.replace(/<\w+>|<\/>/g, '');
-  assert.equal(plain, 'project • opus:high • 95%/200k • ↑8');
+  assert.equal(plain, 'project • opus:high • 95%/200k • R8');
   assert.equal(colours[plain.indexOf('95%')], 'dim');
-  assert.equal(colours[plain.indexOf('↑8')], 'dim');
+  assert.equal(colours[plain.indexOf('R8')], 'dim');
 });
 
 test('orders all-folder reverse search by recency', async () => {
